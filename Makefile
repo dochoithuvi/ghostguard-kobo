@@ -28,6 +28,7 @@ test:
 	cc -std=c99 -Wall -Wextra -Werror -Iinclude src/classifier.c tests/test_classifier.c -o .build/test_classifier
 	.build/test_classifier
 	sh tests/test_profile_lifecycle.sh
+	sh tests/test_status_library_cleanup.sh
 	go test ./cmd/gg-license-verify
 
 license-verifiers:
