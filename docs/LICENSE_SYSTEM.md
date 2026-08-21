@@ -1,72 +1,49 @@
-# GhostGuard Kobo License System v4
+# Shared GhostGuard License System
 
-## Goal
+GhostGuard Kobo uses the **same signed online license registry as GhostGuard Kindle**. There is no separate Kobo `license.key` issuance flow.
 
-Keep the familiar per-device `license.key` workflow while preventing a copied
-repository/package from being able to mint new licenses.
+## Authoritative registry
 
-## Trust model
-
-GhostGuard Kobo v4 uses Ed25519 public-key signatures.
-
-- The **private key** exists only in the administrator package and is never
-  committed to `ghostguard-kobo`.
-- The **public key** is embedded in the static Kobo verifier binaries.
-- `license_bridge.sh` does not contain a signing secret.
-
-This removes the major weakness of the earlier shared-secret SHA-256 scheme,
-where possession of the manager/source could reveal the signing secret.
-
-## `license.key` format
+Primary:
 
 ```text
-# DCPRO GhostGuard Kobo offline license
-license_format=4
-serial=N123456789012
-customer=Example Customer
-issued_at=2026-08-21
-expire=2026-12-31
-features=ghostguard-kobo,ultimate
-license_id=DCPRO-20260821-1A2B3C4D
-sig_alg=ed25519
-sig=<base64 Ed25519 signature>
+https://raw.githubusercontent.com/dochoithuvi/ghostguard-kindle/main/licenses/licenses.json
+https://raw.githubusercontent.com/dochoithuvi/ghostguard-kindle/main/licenses/licenses.sig
 ```
 
-Canonical signed payload:
+Mirror: the same files through jsDelivr.
+
+The registry is signed with RSA-SHA256. Kobo ships only the same public trust anchors used by Kindle; private signing keys are never present on Kobo or in this repository.
+
+## Device lookup
+
+The Kobo serial is normalized to uppercase alphanumeric form and SHA-256 hashed. That hash is looked up in `entries[].serial_hash`, matching the Kindle privacy model.
+
+A Kobo entitlement is accepted only when:
+
+- the signed registry verifies;
+- the serial hash matches this Kobo;
+- `status` is active;
+- issue/expiry checks pass; and
+- features include `kobo`, `ghostguard`, `ghostguard-kobo`, or `ultimate`.
+
+`ultimate` therefore grants the shared GhostGuard product entitlement. Kobo-specific customers may use `kobo,ultimate` in the same database.
+
+## Offline grace
+
+After a successful online sync, Kobo caches the signed registry and signature under `.adds/ghostguard/data/`:
 
 ```text
-4|SERIAL|CUSTOMER|ISSUED_AT|EXPIRE|FEATURES|LICENSE_ID|ed25519
+online_licenses.json
+online_licenses.sig
+online_license_sync_state
+license_last_date
 ```
 
-Serial is normalized to uppercase ASCII alphanumeric characters before signing
-and verification.
+Default offline grace is 604800 seconds (7 days), matching Kindle. Clock rollback is fail-closed.
 
-## Device validation
+A fresh, correctly signed registry that explicitly revokes, expires, disables, suspends or omits a device **never falls back to an older cache**. Cache fallback is only for network/source/verification unavailability.
 
-`license_bridge.sh` selects one of:
+## Security boundary
 
-```text
-bin/gg-license-verify-armv7
-bin/gg-license-verify-aarch64
-```
-
-The verifier checks:
-
-1. required fields occur exactly once;
-2. `license_format=4` and `sig_alg=ed25519`;
-3. license serial matches the current Kobo serial;
-4. feature grants include `ghostguard-kobo`, `ghostguard`, `kobo`, or `ultimate`;
-5. issue/expiry dates are valid;
-6. system date is not before `issued_at`;
-7. system date has not rolled back behind the last successful validation;
-8. Ed25519 signature is valid.
-
-The verifier fails closed for license errors. The touch engine itself remains
-fail-open with respect to input handling.
-
-## Admin key handling
-
-Keep the generated `private_key.txt` outside the Git repository and outside any
-public release folder. Back it up offline. If it is lost, existing licenses keep
-working but new licenses cannot be issued with the same trust anchor. If it is
-leaked, rotate the key and ship a verifier update containing the new public key.
+Public source may contain verifier code and public RSA keys. Never publish the private registry signing key or raw customer serial database.
