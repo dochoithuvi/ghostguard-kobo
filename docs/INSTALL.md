@@ -19,16 +19,43 @@ KOBOeReader/.kobo/KoboRoot.tgz
 ```
 
 5. Safely eject/disconnect the Kobo.
-6. Kobo will process the package through its normal update mechanism and reboot automatically.
-7. After boot, open `GG · Status`, then start with `GG · Learn` or `GG · Shadow`.
+6. Kobo processes the package through its normal update mechanism and reboots automatically.
+7. After boot, open `GhostGuard - Status` and then use `GhostGuard - Start`.
 
 The archive installs the GhostGuard runtime into `/mnt/onboard/.adds/ghostguard/` and its NickelMenu configuration into `/mnt/onboard/.adds/nm/ghostguard`.
 
-Updates are profile-safe: the published `KoboRoot.tgz` intentionally excludes `profile_v5.txt`, `online_licenses.json`, `online_licenses.sig`, `online_license_sync_state`, and other learned/runtime state. Existing data therefore remains in place when a newer package overwrites the runtime files.
+Updates are profile-safe: the published `KoboRoot.tgz` intentionally excludes Profile V5 state, signed license cache, and learned/runtime data.
 
-### NickelMenu prerequisite
+## v0.8.2 customer menu
 
-GhostGuard's menu entries require a compatible NickelMenu installation. GhostGuard does not bundle or overwrite NickelMenu itself. This matters especially on newer Kobo firmware because NickelMenu compatibility can vary by firmware version.
+Only five GhostGuard items are exposed to the user:
+
+```text
+GhostGuard - Status
+GhostGuard - Start
+GhostGuard - Activate Profile
+GhostGuard - Stop
+GhostGuard - Report
+```
+
+`GhostGuard - Start` automatically selects the correct internal mode:
+
+```text
+CALIBRATION / no approved profile -> LEARN
+PENDING_APPROVAL                 -> SHADOW
+PROBATION                        -> SHADOW
+PROBATION_PASSED                 -> SHADOW
+```
+
+If the controller fingerprint changes, Profile V5 resets safely to calibration and Start learns a new baseline. Users never need to choose Learn or Shadow manually.
+
+When a signed license cache is available, Start validates it locally. If no usable cache exists, Start attempts the shared GhostGuard online registry automatically after NickelMenu requests Wi-Fi autoconnect.
+
+`GhostGuard - Activate Profile` is used only after Status shows `Profile: Ready to activate`. It moves Profile V5 into the two-session Shadow probation stage. Protect remains disabled in v0.8.2.
+
+## NickelMenu prerequisite
+
+GhostGuard's menu entries require a compatible NickelMenu installation. GhostGuard does not bundle or overwrite NickelMenu itself.
 
 ## Optional: shell OneClick
 
@@ -50,38 +77,19 @@ Installer log:
 
 ## License
 
-No separate Kobo `license.key` is required.
-
-Kobo uses the same signed online GhostGuard license registry as Kindle:
+No separate Kobo `license.key` is required. Kobo uses the same signed online GhostGuard license registry as Kindle:
 
 ```text
 https://raw.githubusercontent.com/dochoithuvi/ghostguard-kindle/main/licenses/licenses.json
 https://raw.githubusercontent.com/dochoithuvi/ghostguard-kindle/main/licenses/licenses.sig
 ```
 
-Add or renew the Kobo serial in the existing GhostGuard license database. Active entries with `kobo`, `ghostguard`, `ghostguard-kobo`, or `ultimate` entitlement are accepted after RSA-SHA256 registry verification.
-
-A successfully verified registry is cached for up to 7 days for offline use. A fresh signed registry that revokes, expires, suspends, disables, or omits the device is denied immediately and does not fall back to stale cache.
+Active entries with `kobo`, `ghostguard`, `ghostguard-kobo`, or `ultimate` entitlement are accepted after RSA-SHA256 registry verification. A successfully verified registry is cached for up to 7 days for offline use. A fresh signed registry which revokes, expires, suspends, disables, or omits the device is denied immediately.
 
 ## Manual ZIP install
 
-If both KoboRoot and shell OneClick are unavailable:
+If both KoboRoot and shell OneClick are unavailable, download the ZIP artifact referenced by `manifest.online.json`, verify SHA256 when possible, and extract it to the root of the Kobo USB drive. Preserve `.adds/ghostguard/data/` when updating manually.
 
-1. Stop GhostGuard if an older build is running.
-2. Download the current ZIP artifact referenced by `manifest.online.json`.
-3. Verify its SHA256 against the manifest when possible.
-4. Extract the ZIP to the root of the Kobo USB drive so `.adds/ghostguard/` and `.adds/nm/ghostguard` are placed correctly.
-5. Safely eject/reboot as required by NickelMenu.
-6. Open `GG · Status` and confirm `License: OK`.
+## Safety
 
-When updating manually, preserve `.adds/ghostguard/data/` because it contains Profile V5 state and the signed license-registry cache.
-
-## Profile V5 first run
-
-1. Run `GG · Learn`.
-2. Use the device normally until `GG · Status` shows `Profile V5: PENDING_APPROVAL`.
-3. Select `GG · Approve Profile`.
-4. Complete two normal Shadow sessions.
-5. Status will show `PROBATION_PASSED`.
-
-`PROBATION_PASSED` only means the profile is eligible for a later Protect Beta. In v0.8.1, Protect remains OFF: no EVIOCGRAB and no uinput touch suppression.
+v0.8.2 remains Shadow-only from the touch-blocking perspective. `PROBATION_PASSED` means the profile is eligible for a later Protect release, but this version still uses no EVIOCGRAB and no uinput touch suppression.
