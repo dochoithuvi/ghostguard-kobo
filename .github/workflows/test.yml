@@ -13,8 +13,15 @@ jobs:
         with:
           go-version: '1.22.x'
       - name: Shell and lifecycle tests
-        run: make test
+        run: |
+          sh -n DCPRO_GhostGuard_Kobo_OneClick.sh
+          make test
       - name: Go compile checks
         run: go test ./...
       - name: Cross-build Kobo license verifiers
         run: make license-verifiers
+      - name: Package smoke build
+        run: |
+          make package
+          test -s dist/GhostGuard-Kobo-v0.8.1-profile-v5.zip
+          unzip -t dist/GhostGuard-Kobo-v0.8.1-profile-v5.zip >/dev/null
