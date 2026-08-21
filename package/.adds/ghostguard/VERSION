@@ -1,18 +1,16 @@
 DCPRO GhostGuard Kobo
-Version: 0.8.2.2
-Profile lifecycle: V5
-Observer engine: v0.7.3-compatible shadow binary
+Version: 0.8.3
+Profile lifecycle: V5 live-readiness
+Native engine: v0.8.3 evdev/uinput Protect Beta
 Controller fingerprint: enabled
-Auto Start: enabled (Learn/Shadow selected automatically)
-Auto Learn -> Ready: enabled
+Auto Start: Learn -> Shadow -> Protect
+Auto Learn -> Ready: enabled (live contacts.csv authoritative)
 Profile activation: manual
 Probation sessions: 2
-License: shared GhostGuard registry / RSA-SHA256 / serial-hash
-NickelMenu: 5-item user UX / nonblocking actions
-Status: live contacts.csv learning progress enabled
-Library cleanup: runtime text files archived to private extensions when idle
-Packaged safety metadata: non-document extension
-Protect: disabled
-Input grab: never
-uinput: disabled
-Fail-open: enabled
+License: shared GhostGuard Kindle registry / RSA-SHA256 / serial-hash
+NickelMenu: 5-item user UX
+Protect: enabled after PROBATION_PASSED
+Quarantine: 10ms
+EVIOCGRAB: armed only after Nickel opens virtual touch
+uinput: capability-cloned virtual touchscreen
+Fail-open: enabled (uinput/grab/read/SYN_DROPPED faults release protection)
