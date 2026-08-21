@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.3.1 - 2026-08-22
+
+- Fixed `GhostGuard - Status` NickelMenu timeouts by moving Profile V5 sync to a background best-effort kick and increasing the local popup timeout budget.
+- Runtime Profile V5, native observer profile, license/device/fault state now use `.ggstate/.ggdata` permanently while the engine is running; they are no longer temporarily restored as `.txt`.
+- Native ARMv7/AArch64 builds now write `observer_profile.ggdata` and `RUNTIME_FAULT.ggstate` directly.
+- Added migration of legacy `profile_v5.txt`, `profile.txt`, `LICENSE_STATUS.txt`, `KOBO_DEVICE_ID.txt`, `RUNTIME_FAULT.txt`, `status.txt`, and `LAST_ACTION.txt` into private state names.
+- Reports retain only compressed `.tar.gz/.tar` archives. Loose old report trees such as `SYSTEM.txt`, status/profile snapshots and `LATEST` directories are removed automatically.
+- `GhostGuard - Status` and `GhostGuard - Stop` trigger a Nickel library rescan after cleanup so stale GhostGuard book cards disappear from My Books.
+- Added CI gates preventing the shipped core/profile manager/native runtime from writing document-like `.txt` state.
+- Protect Beta logic is unchanged from v0.8.3.
+
 ## 0.8.3 - 2026-08-22
 
 - Fixed `Learning: 100%` while Profile V5 remained `CALIBRATION`: live `contacts.csv` is now authoritative when newer than the batched native profile snapshot.
