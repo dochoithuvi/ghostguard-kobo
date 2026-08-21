@@ -44,7 +44,10 @@ jobs:
           tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-armv7$'
           tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-aarch64$'
           tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/nm/ghostguard$'
-          ! tar -tzf dist/*-KoboRoot.tgz | grep -Eq 'profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state'
+          ! tar -tzf dist/*-KoboRoot.tgz | grep -Eq '\.txt$|profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state'
+          ! grep -q '\.txt' package/.adds/ghostguard/ghostguard.sh
+          ! grep -q '\.txt' package/.adds/ghostguard/profile_manager.sh
+          grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
       - name: Publish stable online artifacts and manifest
         run: |
           set -eux

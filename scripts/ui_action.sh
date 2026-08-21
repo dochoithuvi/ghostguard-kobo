@@ -1,69 +1,84 @@
 #!/bin/sh
-# Customer-facing GhostGuard action wrapper.
-# Restores legacy native text state only for the duration it is required, then
-# archives it to non-document extensions whenever the engine is stopped.
+# GhostGuard Kobo v0.8.3.1 customer action wrapper.
+# Runtime state uses private extensions permanently. Legacy .txt state is only
+# consumed here during migration and is never recreated by the packaged runtime.
 set -u
 
 BASE=/mnt/onboard/.adds/ghostguard
 DATA="$BASE/data"
 RUN="$BASE/runtime"
 CORE="$BASE/ghostguard.sh"
-PIDFILE="$RUN/supervisor.pid"
 REPORT_PUBLIC=/mnt/onboard/GhostGuard_Reports
 REPORT_HIDDEN=/mnt/onboard/.kobo/GhostGuard_Reports
 
-mkdir -p "$DATA" "$RUN" 2>/dev/null || true
+mkdir -p "$DATA" "$RUN" "$REPORT_HIDDEN" 2>/dev/null || true
 
-is_running() {
-    [ -f "$PIDFILE" ] || return 1
-    P="$(cat "$PIDFILE" 2>/dev/null)"
-    [ -n "$P" ] || return 1
-    kill -0 "$P" 2>/dev/null
+move_legacy() {
+    SRC="$1"; DST="$2"
+    [ -f "$SRC" ] || return 0
+    mv -f "$SRC" "$DST" 2>/dev/null || {
+        cp "$SRC" "$DST" 2>/dev/null && rm -f "$SRC" 2>/dev/null || true
+    }
 }
 
-restore_native_state() {
-    [ ! -f "$DATA/profile_v5.txt" ] && [ -f "$DATA/profile_v5.ggstate" ] && mv -f "$DATA/profile_v5.ggstate" "$DATA/profile_v5.txt" 2>/dev/null || true
-    [ ! -f "$DATA/profile.txt" ] && [ -f "$DATA/observer_profile.ggdata" ] && mv -f "$DATA/observer_profile.ggdata" "$DATA/profile.txt" 2>/dev/null || true
-    [ ! -f "$DATA/LICENSE_STATUS.txt" ] && [ -f "$DATA/LICENSE_STATUS.ggstate" ] && mv -f "$DATA/LICENSE_STATUS.ggstate" "$DATA/LICENSE_STATUS.txt" 2>/dev/null || true
-    [ ! -f "$DATA/KOBO_DEVICE_ID.txt" ] && [ -f "$DATA/KOBO_DEVICE_ID.ggstate" ] && mv -f "$DATA/KOBO_DEVICE_ID.ggstate" "$DATA/KOBO_DEVICE_ID.txt" 2>/dev/null || true
-    [ ! -f "$DATA/RUNTIME_FAULT.txt" ] && [ -f "$DATA/RUNTIME_FAULT.ggstate" ] && mv -f "$DATA/RUNTIME_FAULT.ggstate" "$DATA/RUNTIME_FAULT.txt" 2>/dev/null || true
+migrate_legacy_state() {
+    # v0.8.2.x / v0.8.3 temporarily exposed these as text documents while the
+    # engine was running. From v0.8.3.1 onward the private names are canonical.
+    move_legacy "$DATA/profile_v5.txt" "$DATA/profile_v5.ggstate"
+    move_legacy "$DATA/profile.txt" "$DATA/observer_profile.ggdata"
+    move_legacy "$DATA/LICENSE_STATUS.txt" "$DATA/LICENSE_STATUS.ggstate"
+    move_legacy "$DATA/KOBO_DEVICE_ID.txt" "$DATA/KOBO_DEVICE_ID.ggstate"
+    move_legacy "$DATA/RUNTIME_FAULT.txt" "$DATA/RUNTIME_FAULT.ggstate"
+    move_legacy "$DATA/status.txt" "$DATA/status.ggstate"
+    move_legacy "$DATA/LAST_ACTION.txt" "$DATA/LAST_ACTION.ggstate"
 }
 
-archive_runtime_docs() {
-    # License/device/fault status is not consumed continuously, so it can always
-    # live under private extensions after an action completes.
-    [ -f "$DATA/LICENSE_STATUS.txt" ] && mv -f "$DATA/LICENSE_STATUS.txt" "$DATA/LICENSE_STATUS.ggstate" 2>/dev/null || true
-    [ -f "$DATA/KOBO_DEVICE_ID.txt" ] && mv -f "$DATA/KOBO_DEVICE_ID.txt" "$DATA/KOBO_DEVICE_ID.ggstate" 2>/dev/null || true
-    [ -f "$DATA/RUNTIME_FAULT.txt" ] && mv -f "$DATA/RUNTIME_FAULT.txt" "$DATA/RUNTIME_FAULT.ggstate" 2>/dev/null || true
-    [ -f "$DATA/LAST_ACTION.txt" ] && mv -f "$DATA/LAST_ACTION.txt" "$DATA/LAST_ACTION.ggstate" 2>/dev/null || true
-
-    # Profile V5 and the native observer profile are needed while the observer is
-    # live. Once stopped, persist them under extensions Nickel does not treat as
-    # books. The next Start restores them automatically.
-    if ! is_running; then
-        [ -f "$DATA/profile_v5.txt" ] && mv -f "$DATA/profile_v5.txt" "$DATA/profile_v5.ggstate" 2>/dev/null || true
-        [ -f "$DATA/profile.txt" ] && mv -f "$DATA/profile.txt" "$DATA/observer_profile.ggdata" 2>/dev/null || true
+cleanup_loose_reports() {
+    # Keep only compressed report archives. Loose SYSTEM/status/profile text from
+    # older builds is what Nickel was importing into My Books.
+    if [ -d "$REPORT_PUBLIC" ]; then
+        for F in "$REPORT_PUBLIC"/*.tar.gz "$REPORT_PUBLIC"/*.tar; do
+            [ -f "$F" ] || continue
+            mv -f "$F" "$REPORT_HIDDEN/" 2>/dev/null || true
+        done
+        rm -rf "$REPORT_PUBLIC" 2>/dev/null || true
     fi
+
+    if [ -d "$REPORT_HIDDEN" ]; then
+        for F in "$REPORT_HIDDEN"/*; do
+            [ -e "$F" ] || continue
+            case "$F" in
+                *.tar.gz|*.tar) ;;
+                *) rm -rf "$F" 2>/dev/null || true ;;
+            esac
+        done
+    fi
+
+    # Internal temporary report trees are never needed after the archive exists.
+    [ -d "$DATA/reports" ] && rm -rf "$DATA/reports"/* 2>/dev/null || true
+
+    # Remove stale document-like diagnostics left by pre-0.8.3.1 builds after
+    # their canonical state has already been migrated above.
+    find "$DATA" -type f -name '*.txt' -exec rm -f {} \; 2>/dev/null || true
 }
 
-hide_reports() {
-    [ -d "$REPORT_PUBLIC" ] || return 0
-    mkdir -p "$REPORT_HIDDEN" 2>/dev/null || true
-    for F in "$REPORT_PUBLIC"/*; do
-        [ -e "$F" ] || continue
-        mv -f "$F" "$REPORT_HIDDEN/" 2>/dev/null || true
-    done
-    rmdir "$REPORT_PUBLIC" 2>/dev/null || true
+cleanup_all() {
+    migrate_legacy_state
+    cleanup_loose_reports
 }
 
-ACTION="${1:-status}"
+ACTION="${1:-cleanup}"
 shift 2>/dev/null || true
-restore_native_state
+cleanup_all
 
 case "$ACTION" in
     start|approve|stop|report)
         "$CORE" "$ACTION" "$@"
         RC=$?
+        ;;
+    cleanup)
+        echo "GhostGuard library cleanup complete."
+        RC=0
         ;;
     *)
         echo "Unsupported UI action: $ACTION"
@@ -71,6 +86,7 @@ case "$ACTION" in
         ;;
 esac
 
-[ "$ACTION" = report ] && hide_reports
-archive_runtime_docs
+# Core v0.8.3.1 writes only private extensions, but run cleanup once more after
+# an action so legacy report trees from an interrupted older build are removed.
+cleanup_all
 exit "$RC"
