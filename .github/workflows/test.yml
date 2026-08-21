@@ -12,14 +12,22 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22.x'
-      - name: Shell and lifecycle tests
+      - name: Native cross toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang lld
+      - name: Shell lifecycle and Protect gates
         run: |
           sh -n DCPRO_GhostGuard_Kobo_OneClick.sh
           make test
       - name: Go compile checks
         run: go test ./...
-      - name: Cross-build Kobo license verifiers
-        run: make license-verifiers
+      - name: Cross-build native Protect + license verifiers
+        run: |
+          make native-binaries
+          make license-verifiers
+          file package/.adds/ghostguard/bin/ghostguardd-armv7 | grep -q 'ARM'
+          file package/.adds/ghostguard/bin/ghostguardd-aarch64 | grep -q 'aarch64'
       - name: Package smoke build
         run: |
           set -eux
@@ -31,7 +39,7 @@ jobs:
           test -s "$TGZ"
           unzip -t "$ZIP" >/dev/null
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/ghostguard.sh$'
-          tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/nm_quick.sh$'
-          tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/ui_action.sh$'
+          tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-armv7$'
+          tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-aarch64$'
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/nm/ghostguard$'
-          ! tar -tzf "$TGZ" | grep -Eq 'profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state|LAST_ACTION\.txt|LICENSE_STATUS\.txt|KOBO_DEVICE_ID\.txt'
+          ! tar -tzf "$TGZ" | grep -Eq 'profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state'

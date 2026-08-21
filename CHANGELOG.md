@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.3 - 2026-08-22
+
+- Fixed `Learning: 100%` while Profile V5 remained `CALIBRATION`: live `contacts.csv` is now authoritative when newer than the batched native profile snapshot.
+- Added regression coverage for stale observer profile + ready live CSV data.
+- Added native ARMv7/AArch64 evdev/uinput Protect Beta engine, built from source in CI with clang/lld.
+- Auto Start now routes `PROBATION_PASSED` profiles to `PROTECT`.
+- Protect creates a capability-cloned virtual touchscreen and waits for the supervisor to verify Nickel has opened it before attempting `EVIOCGRAB`.
+- Added 10 ms contact quarantine. Only ultra-short high-confidence `WOULD_DROP` contacts with at least two independent evidence families are suppressed.
+- Multitouch and contacts longer than the quarantine window are forwarded conservatively.
+- Added fail-open handling for missing uinput, failed virtual creation/write, input read failure, `SYN_DROPPED`, and daemon exit.
+- Build-time native hardening suppresses the remainder of a dropped contact frame to avoid orphan UP/SYN tails and destroys the virtual input on runtime fail-open.
+- Status now shows Watch/Suspect/Candidate live telemetry, last-touch risk, Protect state, blocked count and explicit fail-open reason.
+- Customer NickelMenu remains exactly five items; shared Kindle/Kobo license registry remains unchanged.
+
 ## 0.8.2.2 - 2026-08-21
 
 - Fixed live learning visibility: `GhostGuard - Status` now reads `contacts.csv` directly instead of waiting for the native observer's batched `profile.txt` flush.
@@ -14,10 +28,10 @@
 - Added Kindle-style customer learning progress to `GhostGuard - Status`.
 - Status now shows learning percentage, touch count, baseline count, incomplete-data quality, Profile state, Probation progress, and the next recommended action.
 - Added `ui_action.sh` so customer actions automatically restore legacy native state only while needed and archive it again when idle.
-- Migrates `profile_v5.txt`, `LICENSE_STATUS.txt`, `KOBO_DEVICE_ID.txt`, `LAST_ACTION.txt`, `RUNTIME_FAULT.txt`, and idle `profile.txt` to private `.ggstate/.ggdata` extensions so Nickel stops treating them as books after the next library rescan.
-- Report output is moved from `/mnt/onboard/GhostGuard_Reports` to hidden `/mnt/onboard/.kobo/GhostGuard_Reports` after creation.
+- Migrates runtime `.txt` state to private `.ggstate/.ggdata` extensions so Nickel stops treating it as books after the next library rescan.
+- Report output is moved to hidden `/mnt/onboard/.kobo/GhostGuard_Reports` after creation.
 - Keeps the five-item customer menu unchanged.
-- Protect remains disabled (`PROTECT_ACTIVE=0`, no EVIOCGRAB, no uinput).
+- Protect remains disabled.
 
 ## 0.8.2 - 2026-08-21
 
@@ -36,7 +50,7 @@
 - Added automatic baseline invalidation/archive when the controller fingerprint changes.
 - Added Profile V5 data to status and diagnostic reports.
 - Added lifecycle regression test and package sync target.
-- Protect remains disabled (`PROTECT_ACTIVE=0`, no EVIOCGRAB, no uinput).
+- Protect remains disabled.
 
 ## 0.8.0-foundation - 2026-08-21
 
