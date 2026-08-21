@@ -12,6 +12,8 @@ on:
       - 'package/**'
       - 'scripts/**'
       - 'src/**'
+      - 'tools/**'
+      - 'tests/**'
       - 'DCPRO_GhostGuard_Kobo_OneClick.sh'
       - '.github/workflows/publish-online.yml'
   workflow_dispatch:
@@ -29,12 +31,18 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22.x'
+      - name: Native cross toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang lld
       - name: Build and test distribution
         run: |
           set -eux
           make test
           make package koboroot
           tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/ghostguard.sh$'
+          tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-armv7$'
+          tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-aarch64$'
           tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/nm/ghostguard$'
           ! tar -tzf dist/*-KoboRoot.tgz | grep -Eq 'profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state'
       - name: Publish stable online artifacts and manifest
