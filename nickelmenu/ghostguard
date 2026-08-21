@@ -21,7 +21,7 @@ menu_item : main : GhostGuard - Approve Profile : nickel_wifi : autoconnect_sile
   chain_always : dbg_toast : Đang duyệt Profile V5...
 
 menu_item : main : GhostGuard - Sync License : nickel_wifi : autoconnect_silent
-  chain_always : cmd_spawn : quiet:sleep 3; /mnt/onboard/.adds/ghostguard/ghostguard.sh license > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
+  chain_always : cmd_spawn : quiet:sleep 3; /mnt/onboard/.adds/ghostguard/ghostguard.sh license-sync > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
   chain_always : dbg_toast : Đang đồng bộ license...
 
 menu_item : main : GhostGuard - License Status : cmd_output : 2500 : /mnt/onboard/.adds/ghostguard/nm_quick.sh license
