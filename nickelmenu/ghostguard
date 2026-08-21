@@ -1,11 +1,22 @@
-# DCPRO GhostGuard Kobo v0.8.1-profile-v5 — Compact NickelMenu
+# DCPRO GhostGuard Kobo v0.8.1.1-hotfix — Nonblocking NickelMenu
+# Network/long-running actions use cmd_spawn so NickelMenu never waits on them.
 
-menu_item : main : GG · Status : cmd_output : 8000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh status
-menu_item : main : GG · Learn : cmd_output : 6000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh learn
-menu_item : main : GG · Profile : cmd_output : 8000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh profile-status
-menu_item : main : GG · Approve Profile : cmd_output : 7000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh approve
-menu_item : main : GG · Shadow : cmd_output : 6000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh shadow
-menu_item : main : GG · Stop : cmd_output : 5000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh stop
-menu_item : main : GG · Report : cmd_output : 9000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh report
+menu_item : main : GG · Status : cmd_output : 2500 : /mnt/onboard/.adds/ghostguard/nm_quick.sh status
+menu_item : main : GG · Learn : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/ghostguard.sh learn > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
+  chain_success : dbg_toast : GhostGuard Learn đang khởi động...
+menu_item : main : GG · Shadow : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/ghostguard.sh shadow > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
+  chain_success : dbg_toast : GhostGuard Shadow đang khởi động...
+menu_item : main : GG · Stop : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/ghostguard.sh stop > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
+  chain_success : dbg_toast : Đang dừng GhostGuard...
+menu_item : main : GG · Profile : cmd_output : 3000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh profile-status
+menu_item : main : GG · Approve Profile : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/ghostguard.sh approve > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
+  chain_success : dbg_toast : Đang duyệt Profile V5...
+menu_item : main : GG · Sync License : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/ghostguard.sh license > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
+  chain_success : dbg_toast : Đang đồng bộ license...
+menu_item : main : GG · License Status : cmd_output : 2500 : /mnt/onboard/.adds/ghostguard/nm_quick.sh license
+menu_item : main : GG · Device ID : cmd_output : 2000 : /mnt/onboard/.adds/ghostguard/nm_quick.sh device-id
+menu_item : main : GG · Last Result : cmd_output : 2500 : /mnt/onboard/.adds/ghostguard/nm_quick.sh last
+menu_item : main : GG · Report : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/ghostguard.sh report > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
+  chain_success : dbg_toast : Đang tạo GhostGuard report...
 
-menu_item : reader : GG · Status : cmd_output : 8000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh status
+menu_item : reader : GG · Status : cmd_output : 2500 : /mnt/onboard/.adds/ghostguard/nm_quick.sh status
