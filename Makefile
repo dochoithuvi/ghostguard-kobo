@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.1.1-hotfix
+VERSION := 0.8.2
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 
@@ -9,6 +9,16 @@ all: test package koboroot
 test:
 	sh -n scripts/*.sh
 	sh -n DCPRO_GhostGuard_Kobo_OneClick.sh
+	@COUNT="$$(grep -c '^menu_item[[:space:]]*:' nickelmenu/ghostguard)"; [ "$$COUNT" -eq 5 ] || { echo "Expected exactly 5 GhostGuard menu items, got $$COUNT"; exit 1; }
+	grep -q 'GhostGuard - Status' nickelmenu/ghostguard
+	grep -q 'GhostGuard - Start' nickelmenu/ghostguard
+	grep -q 'GhostGuard - Activate Profile' nickelmenu/ghostguard
+	grep -q 'GhostGuard - Stop' nickelmenu/ghostguard
+	grep -q 'GhostGuard - Report' nickelmenu/ghostguard
+	! grep -Eq 'GhostGuard - (Learn|Shadow|Sync License|License Status|Device ID|Last Result|Profile)[[:space:]]*:' nickelmenu/ghostguard
+	grep -q 'start|learn) start_engine LEARN' scripts/ghostguard.sh
+	grep -q 'PENDING_APPROVAL).*MODE=SHADOW' scripts/ghostguard.sh
+	grep -q 'PROBATION|PROBATION_PASSED).*MODE=SHADOW' scripts/ghostguard.sh
 	mkdir -p .build
 	cc -std=c99 -Wall -Wextra -Werror -Iinclude src/classifier.c tests/test_classifier.c -o .build/test_classifier
 	.build/test_classifier

@@ -35,16 +35,34 @@ is_running() {
     kill -0 "$P" 2>/dev/null
 }
 
+license_first() {
+    [ -s "$LICENSE_STATUS" ] && head -n 1 "$LICENSE_STATUS" 2>/dev/null || true
+}
+
 license_summary() {
-    if [ ! -s "$LICENSE_STATUS" ]; then
-        echo "NOT_SYNCED"
-        return
-    fi
-    FIRST="$(head -n 1 "$LICENSE_STATUS" 2>/dev/null)"
+    FIRST="$(license_first)"
     case "$FIRST" in
-        OK\|*) echo "OK" ;;
+        OK\|*) echo "ACTIVE" ;;
         DENY\|*) echo "DENIED" ;;
-        *) echo "UNKNOWN" ;;
+        *) echo "NOT_SYNCED" ;;
+    esac
+}
+
+license_reason() {
+    FIRST="$(license_first)"
+    case "$FIRST" in
+        DENY\|*) printf '%s\n' "${FIRST#DENY|}" | cut -d';' -f1 ;;
+        *) echo "" ;;
+    esac
+}
+
+friendly_profile() {
+    case "$1" in
+        CALIBRATION|'') echo "Learning" ;;
+        PENDING_APPROVAL) echo "Ready to activate" ;;
+        PROBATION) echo "Probation" ;;
+        PROBATION_PASSED) echo "Active profile" ;;
+        *) echo "$1" ;;
     esac
 }
 
@@ -58,36 +76,35 @@ show_status() {
         MODE=-
     fi
     PS="$(v5_value STATE)"; [ -n "$PS" ] || PS=CALIBRATION
-    PR="$(v5_value PROFILE_READY)"; [ -n "$PR" ] || PR=0
     PC="$(v5_value PROBATION_COMPLETED)"; [ -n "$PC" ] || PC=0
     PN="$(v5_value PROBATION_REQUIRED)"; [ -n "$PN" ] || PN=2
-    echo "GhostGuard Kobo 0.8.1.1-hotfix"
+    LIC="$(license_summary)"
+
+    echo "GhostGuard Kobo 0.8.2"
     echo "Device: $SERIAL"
-    echo "$STATE | $MODE | License: $(license_summary)"
-    echo "Profile V5: $PS | Ready: $PR | Probation: $PC/$PN"
-    echo "Protect: OFF | Grab: NEVER"
-    case "$(license_summary)" in
-        NOT_SYNCED) echo "License chưa sync. Chọn GG · Sync License, đợi vài giây rồi xem GG · License Status." ;;
-        DENIED) echo "License bị từ chối. Xem GG · License Status để biết lý do." ;;
+    echo "Engine: $STATE | Mode: $MODE"
+    case "$LIC" in
+        ACTIVE) echo "License: Active" ;;
+        NOT_SYNCED) echo "License: Not synced (Start will sync automatically)" ;;
+        DENIED) echo "License: Denied - $(license_reason)" ;;
+    esac
+    echo "Profile: $(friendly_profile "$PS")"
+    [ "$PS" = "PROBATION" ] && echo "Probation: $PC/$PN"
+    echo "Protect: OFF | Fail-open: ON"
+    case "$PS" in
+        CALIBRATION) echo "Next: GhostGuard - Start" ;;
+        PENDING_APPROVAL) echo "Next: GhostGuard - Activate Profile" ;;
+        PROBATION|PROBATION_PASSED) echo "Next: GhostGuard - Start" ;;
     esac
 }
 
 show_license() {
     echo "DEVICE_ID=$(clean_serial)"
-    if [ -s "$LICENSE_STATUS" ]; then
-        cat "$LICENSE_STATUS"
-    else
-        echo "NOT_SYNCED"
-        echo "Chọn GG · Sync License, đợi vài giây rồi mở lại mục này."
-    fi
+    if [ -s "$LICENSE_STATUS" ]; then cat "$LICENSE_STATUS"; else echo "NOT_SYNCED"; fi
 }
 
 show_last() {
-    if [ -s "$LAST_ACTION" ]; then
-        cat "$LAST_ACTION"
-    else
-        echo "Chưa có kết quả tác vụ."
-    fi
+    if [ -s "$LAST_ACTION" ]; then cat "$LAST_ACTION"; else echo "Chưa có kết quả tác vụ."; fi
 }
 
 case "${1:-status}" in
