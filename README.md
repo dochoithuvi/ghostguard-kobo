@@ -1,4 +1,5 @@
-# ghostguard-kobo
+# DCPRO Kobo Tools Repository
+
 
 DCPRO GhostGuard for Kobo e-readers.
 
