@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.1-profile-v5
+VERSION := 0.8.1.1-hotfix
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 
@@ -24,6 +24,7 @@ sync-package:
 	cp scripts/supervisor.sh package/.adds/ghostguard/supervisor.sh
 	cp scripts/license_bridge.sh package/.adds/ghostguard/license_bridge.sh
 	cp scripts/profile_manager.sh package/.adds/ghostguard/profile_manager.sh
+	cp scripts/nm_quick.sh package/.adds/ghostguard/nm_quick.sh
 	cp config/defaults.conf package/.adds/ghostguard/defaults.conf
 	cp nickelmenu/ghostguard package/.adds/nm/ghostguard
 	chmod +x package/.adds/ghostguard/*.sh package/.adds/ghostguard/bin/ghostguardd-* 2>/dev/null || true

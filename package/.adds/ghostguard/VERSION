@@ -1,5 +1,5 @@
 DCPRO GhostGuard Kobo
-Version: 0.8.1-profile-v5
+Version: 0.8.1.1-hotfix
 Profile lifecycle: V5
 Observer engine: v0.7.3-compatible shadow binary
 Controller fingerprint: enabled
@@ -7,6 +7,7 @@ Auto Learn -> Ready: enabled
 Approval: manual
 Probation sessions: 2
 License: shared GhostGuard registry / RSA-SHA256 / serial-hash
+NickelMenu: nonblocking actions + diagnostics
 Protect: disabled
 Input grab: never
 uinput: disabled
