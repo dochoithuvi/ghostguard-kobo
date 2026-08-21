@@ -1,17 +1,22 @@
-DCPRO GhostGuard Kobo v0.8.2.2
+DCPRO GhostGuard Kobo v0.8.3 Protect Beta
 
-PROFILE V5 / CONTROLLER FINGERPRINT / PROBATION RELEASE.
-SHIPPED TOUCH ENGINE IS STILL SHADOW ONLY.
-EVIOCGRAB=OFF
-uinput=OFF
-PROTECT_ACTIVE=0
-INPUT_GRAB=NEVER
+PROTECT CAN BECOME ACTIVE ONLY AFTER:
+1. Profile V5 is READY and manually activated.
+2. Two Shadow probation sessions pass.
+3. A uinput virtual touchscreen is created successfully.
+4. Nickel is verified to have opened the virtual input device.
+5. Only then is EVIOCGRAB armed on the physical touchscreen.
+
+QUARANTINE_MS=10
 FAIL_OPEN=1
 
-Profile activation does NOT enable touch blocking. Activation starts a Shadow-only
-probation period. After the required probation sessions, the profile becomes
-PROTECT_ELIGIBLE=1 for a future Protect Beta release, while PROTECT_ACTIVE stays 0.
+Any uinput write failure, input read failure, SYN_DROPPED, or process exit releases
+EVIOCGRAB. If uinput is unavailable or Nickel does not open the virtual device,
+Protect stays OFF and normal physical touch remains available.
 
-License validation is fail-closed: an invalid/missing license prevents the
-observer from starting. Input handling remains fail-open: GhostGuard never grabs
-or blocks the touchscreen in this release.
+The first 10 ms of a contact are buffered. Only high-confidence ultra-short ghost
+candidates meeting the independent evidence-family gate are dropped. Longer or
+multitouch contacts are forwarded conservatively.
+
+License validation remains fail-closed for starting GhostGuard; touch handling is
+fail-open so a Protect fault must not intentionally leave the physical screen grabbed.
