@@ -1,0 +1,11 @@
+{
+  "manifest_version": 1,
+  "id": "ghostguard-kobo",
+  "name": "DCPRO GhostGuard Kobo",
+  "version": "0.8.1-profile-v5",
+  "artifact": "packages/ghostguard-kobo/artifacts/GhostGuard-Kobo-v0.8.1-profile-v5.zip",
+  "sha256": "a5c77ba285e6af9c49b68e84075e1b9c728c465ce6f0afd09582c0580c596f09",
+  "install_root": "/mnt/onboard/.adds/ghostguard",
+  "license_registry": "https://raw.githubusercontent.com/dochoithuvi/ghostguard-kindle/main/licenses/licenses.json",
+  "license_signature": "https://raw.githubusercontent.com/dochoithuvi/ghostguard-kindle/main/licenses/licenses.sig"
+}
