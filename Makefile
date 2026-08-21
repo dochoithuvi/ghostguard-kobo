@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.2.1
+VERSION := 0.8.2.2
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 
@@ -22,8 +22,12 @@ test:
 	grep -q 'Learning:.*%' scripts/nm_quick.sh
 	grep -q 'Touches:' scripts/nm_quick.sh
 	grep -q 'Baseline:' scripts/nm_quick.sh
+	grep -q 'live_csv_stats' scripts/nm_quick.sh
+	grep -q 'CONTACTS_CSV' scripts/nm_quick.sh
 	grep -q 'observer_profile.ggdata' scripts/ui_action.sh
 	! grep -q 'LAST_ACTION.txt' nickelmenu/ghostguard
+	test -f package/.adds/ghostguard/SAFETY.ggdata
+	test ! -e package/.adds/ghostguard/SAFETY.txt
 	mkdir -p .build
 	cc -std=c99 -Wall -Wextra -Werror -Iinclude src/classifier.c tests/test_classifier.c -o .build/test_classifier
 	.build/test_classifier

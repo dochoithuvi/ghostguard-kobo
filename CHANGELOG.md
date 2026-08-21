@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.2.2 - 2026-08-21
+
+- Fixed live learning visibility: `GhostGuard - Status` now reads `contacts.csv` directly instead of waiting for the native observer's batched `profile.txt` flush.
+- Touches, baseline progress, incomplete-data percentage, and `WOULD_DROP` ghost candidates now update from the live contact stream.
+- Preserves Profile V5 as the authoritative readiness state; live CSV counters are presentation/diagnostic data only.
+- Renamed packaged `SAFETY.txt` to `SAFETY.ggdata` so modern Kobo firmware does not expose it as a book.
+- Keeps the five-item customer menu unchanged.
+- Protect remains disabled (`PROTECT_ACTIVE=0`, no EVIOCGRAB, no uinput).
+
 ## 0.8.2.1 - 2026-08-21
 
 - Added Kindle-style customer learning progress to `GhostGuard - Status`.

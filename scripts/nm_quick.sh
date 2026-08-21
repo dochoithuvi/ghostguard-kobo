@@ -14,6 +14,7 @@ LICENSE_TXT="$DATA/LICENSE_STATUS.txt"
 LICENSE_STATE="$DATA/LICENSE_STATUS.ggstate"
 LAST_TXT="$DATA/LAST_ACTION.txt"
 LAST_STATE="$DATA/LAST_ACTION.ggstate"
+CONTACTS_CSV="$DATA/contacts.csv"
 PIDFILE="$RUN/supervisor.pid"
 MODEFILE="$RUN/mode"
 
@@ -88,6 +89,28 @@ percent_of() {
     cap100 $((N * 100 / D))
 }
 
+# The native observer persists profile.txt in batches, but contacts.csv is
+# appended contact-by-contact. Read the CSV directly so Status reflects touch
+# capture immediately instead of looking stuck at 0 until the next profile flush.
+# Output: contacts baseline incomplete candidates
+live_csv_stats() {
+    [ -s "$CONTACTS_CSV" ] || { echo "0 0 0 0"; return; }
+    awk -F, '
+        NR == 1 { next }
+        NF >= 13 {
+            contacts++
+            risk = $8 + 0
+            duration = $5 + 0
+            cls = $11
+            action = $12
+            if (cls == "INCOMPLETE") incomplete++
+            if (action == "WOULD_DROP") candidates++
+            if (cls != "INCOMPLETE" && $3 != "" && $4 != "" && duration >= 8000 && risk < 35) baseline++
+        }
+        END { printf "%d %d %d %d\n", contacts+0, baseline+0, incomplete+0, candidates+0 }
+    ' "$CONTACTS_CSV" 2>/dev/null || echo "0 0 0 0"
+}
+
 license_first() {
     F="$(license_file)"
     [ -s "$F" ] && head -n 1 "$F" 2>/dev/null || true
@@ -123,6 +146,19 @@ show_learning_progress() {
     BASELINE="$(num "$(v5_value BASELINE_COUNT)")"
     INCOMPLETE="$(num "$(v5_value INCOMPLETE_PCT)")"
     CAND="$(num "$(v5_value SHADOW_CANDIDATES)")"
+
+    set -- $(live_csv_stats)
+    CSV_CONTACTS="$(num "${1:-0}")"
+    CSV_BASELINE="$(num "${2:-0}")"
+    CSV_INCOMPLETE="$(num "${3:-0}")"
+    CSV_CAND="$(num "${4:-0}")"
+    if [ "$CSV_CONTACTS" -gt "$CONTACTS" ] 2>/dev/null; then CONTACTS="$CSV_CONTACTS"; fi
+    if [ "$CSV_BASELINE" -gt "$BASELINE" ] 2>/dev/null; then BASELINE="$CSV_BASELINE"; fi
+    if [ "$CSV_CAND" -gt "$CAND" ] 2>/dev/null; then CAND="$CSV_CAND"; fi
+    if [ "$CONTACTS" -gt 0 ] 2>/dev/null && [ "$CSV_CONTACTS" -gt 0 ] 2>/dev/null; then
+        INCOMPLETE=$((CSV_INCOMPLETE * 100 / CSV_CONTACTS))
+    fi
+
     NEED_CONTACTS="$(num "$(cfg PROFILE_READY_CONTACTS_MIN 80)")"
     NEED_BASELINE="$(num "$(cfg PROFILE_READY_BASELINE_MIN 60)")"
     MAX_INCOMPLETE="$(num "$(cfg PROFILE_READY_MAX_INCOMPLETE_PCT 25)")"
@@ -136,7 +172,9 @@ show_learning_progress() {
             echo "Touches: $CONTACTS/$NEED_CONTACTS | Baseline: $BASELINE/$NEED_BASELINE"
             echo "Data quality: incomplete ${INCOMPLETE}% (max ${MAX_INCOMPLETE}%)"
             [ "$CAND" -gt 0 ] 2>/dev/null && echo "Ghost candidates observed: $CAND"
-            if [ "$INCOMPLETE" -gt "$MAX_INCOMPLETE" ] 2>/dev/null; then
+            if [ "$CONTACTS" -eq 0 ] 2>/dev/null && is_running; then
+                echo "Capture: waiting for first completed touch"
+            elif [ "$INCOMPLETE" -gt "$MAX_INCOMPLETE" ] 2>/dev/null; then
                 echo "Learning note: cần thêm thao tác ổn định để cải thiện chất lượng dữ liệu."
             else
                 echo "Learning note: cứ dùng máy bình thường, GhostGuard tự học tiếp."
@@ -167,7 +205,7 @@ show_status() {
     PN="$(num "$(v5_value PROBATION_REQUIRED)")"; [ "$PN" -gt 0 ] 2>/dev/null || PN=2
     LIC="$(license_summary)"
 
-    echo "GhostGuard Kobo 0.8.2.1"
+    echo "GhostGuard Kobo 0.8.2.2"
     echo "Engine: $ENGINE | Auto mode: $MODE"
     case "$LIC" in
         ACTIVE) echo "License: Active" ;;

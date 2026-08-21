@@ -1,4 +1,4 @@
-DCPRO GhostGuard Kobo v0.8.1-profile-v5
+DCPRO GhostGuard Kobo v0.8.2.2
 
 PROFILE V5 / CONTROLLER FINGERPRINT / PROBATION RELEASE.
 SHIPPED TOUCH ENGINE IS STILL SHADOW ONLY.
@@ -8,7 +8,7 @@ PROTECT_ACTIVE=0
 INPUT_GRAB=NEVER
 FAIL_OPEN=1
 
-Profile approval does NOT enable touch blocking. Approval starts a Shadow-only
+Profile activation does NOT enable touch blocking. Activation starts a Shadow-only
 probation period. After the required probation sessions, the profile becomes
 PROTECT_ELIGIBLE=1 for a future Protect Beta release, while PROTECT_ACTIVE stays 0.
 
