@@ -46,7 +46,9 @@ def quick_runtime(src: str) -> str:
     new = '  if [ -x "$PM" ]; then "$PM" sync >/dev/null 2>&1 & fi\n'
     if old not in src:
         raise SystemExit("nm_quick synchronous sync anchor missing")
-    return src.replace(old, new, 1)
+    src = src.replace(old, new, 1)
+    src = src.replace("GhostGuard Kobo 0.8.3 Protect Beta", "GhostGuard Kobo 0.8.3.1 Protect Beta")
+    return src
 
 
 rewrite(ROOT / "ghostguard.sh", core_runtime)
