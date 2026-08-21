@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.2
+VERSION := 0.8.2.1
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 
@@ -19,10 +19,16 @@ test:
 	grep -q 'start|learn) start_engine LEARN' scripts/ghostguard.sh
 	grep -q 'PENDING_APPROVAL).*MODE=SHADOW' scripts/ghostguard.sh
 	grep -q 'PROBATION|PROBATION_PASSED).*MODE=SHADOW' scripts/ghostguard.sh
+	grep -q 'Learning:.*%' scripts/nm_quick.sh
+	grep -q 'Touches:' scripts/nm_quick.sh
+	grep -q 'Baseline:' scripts/nm_quick.sh
+	grep -q 'observer_profile.ggdata' scripts/ui_action.sh
+	! grep -q 'LAST_ACTION.txt' nickelmenu/ghostguard
 	mkdir -p .build
 	cc -std=c99 -Wall -Wextra -Werror -Iinclude src/classifier.c tests/test_classifier.c -o .build/test_classifier
 	.build/test_classifier
 	sh tests/test_profile_lifecycle.sh
+	sh tests/test_status_library_cleanup.sh
 	go test ./cmd/gg-license-verify
 
 license-verifiers:
@@ -35,6 +41,7 @@ sync-package:
 	cp scripts/license_bridge.sh package/.adds/ghostguard/license_bridge.sh
 	cp scripts/profile_manager.sh package/.adds/ghostguard/profile_manager.sh
 	cp scripts/nm_quick.sh package/.adds/ghostguard/nm_quick.sh
+	cp scripts/ui_action.sh package/.adds/ghostguard/ui_action.sh
 	cp config/defaults.conf package/.adds/ghostguard/defaults.conf
 	cp nickelmenu/ghostguard package/.adds/nm/ghostguard
 	chmod +x package/.adds/ghostguard/*.sh package/.adds/ghostguard/bin/ghostguardd-* 2>/dev/null || true

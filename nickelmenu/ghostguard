@@ -1,19 +1,23 @@
-# DCPRO GhostGuard Kobo v0.8.2 — Five-item user menu
-# Internal Learn/Shadow/license/debug actions remain available to the backend,
-# but are intentionally hidden from end users.
+# DCPRO GhostGuard Kobo v0.8.2.1 — Five-item user menu
+# Internal Learn/Shadow/license/debug actions remain backend-only.
+# Runtime results use private extensions so Nickel does not present them as books.
 
 menu_item : main : GhostGuard - Status : cmd_output : 2500 : /mnt/onboard/.adds/ghostguard/nm_quick.sh status
 
 menu_item : main : GhostGuard - Start : nickel_wifi : autoconnect_silent
-  chain_always : cmd_spawn : quiet:sleep 2; /mnt/onboard/.adds/ghostguard/ghostguard.sh start > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
+  chain_always : cmd_spawn : quiet:sleep 2; /mnt/onboard/.adds/ghostguard/ui_action.sh start > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.ggstate 2>&1
   chain_always : dbg_toast : GhostGuard đang khởi động...
 
 menu_item : main : GhostGuard - Activate Profile : nickel_wifi : autoconnect_silent
-  chain_always : cmd_spawn : quiet:sleep 2; /mnt/onboard/.adds/ghostguard/ghostguard.sh approve > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
+  chain_always : cmd_spawn : quiet:sleep 2; /mnt/onboard/.adds/ghostguard/ui_action.sh approve > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.ggstate 2>&1
   chain_always : dbg_toast : Đang kích hoạt Profile GhostGuard...
 
-menu_item : main : GhostGuard - Stop : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/ghostguard.sh stop > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
-  chain_success : dbg_toast : Đang dừng GhostGuard...
+# Stop is intentionally synchronous (local-only, normally ~1s). After state files
+# have been archived to .ggstate/.ggdata, ask Nickel to rescan so stale book cards
+# disappear from My Books immediately.
+menu_item : main : GhostGuard - Stop : cmd_output : 3500 : quiet:/mnt/onboard/.adds/ghostguard/ui_action.sh stop > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.ggstate 2>&1
+  chain_success : nickel_misc : rescan_books
+  chain_success : dbg_toast : GhostGuard đã dừng và dọn thư viện.
 
-menu_item : main : GhostGuard - Report : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/ghostguard.sh report > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.txt 2>&1
+menu_item : main : GhostGuard - Report : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/ui_action.sh report > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.ggstate 2>&1
   chain_success : dbg_toast : Đang tạo GhostGuard report...

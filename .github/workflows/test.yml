@@ -32,5 +32,6 @@ jobs:
           unzip -t "$ZIP" >/dev/null
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/ghostguard.sh$'
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/nm_quick.sh$'
+          tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/ui_action.sh$'
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/nm/ghostguard$'
-          ! tar -tzf "$TGZ" | grep -Eq 'profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state'
+          ! tar -tzf "$TGZ" | grep -Eq 'profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state|LAST_ACTION\.txt|LICENSE_STATUS\.txt|KOBO_DEVICE_ID\.txt'
