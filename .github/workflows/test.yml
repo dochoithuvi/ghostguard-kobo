@@ -42,4 +42,7 @@ jobs:
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-armv7$'
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-aarch64$'
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/nm/ghostguard$'
-          ! tar -tzf "$TGZ" | grep -Eq 'profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state'
+          ! tar -tzf "$TGZ" | grep -Eq '\.txt$|profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state'
+          ! unzip -p "$ZIP" .adds/ghostguard/ghostguard.sh | grep -q '\.txt'
+          ! unzip -p "$ZIP" .adds/ghostguard/profile_manager.sh | grep -q '\.txt'
+          unzip -p "$ZIP" .adds/ghostguard/nm_quick.sh | grep -q 'sync >/dev/null 2>&1 &'
