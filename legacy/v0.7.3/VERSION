@@ -1,0 +1,8 @@
+DCPRO GhostGuard Native Kobo
+Version: 0.7.3-controller-adaptive-shadow
+Profile: V4
+Protect: disabled
+Input grab: never
+uinput: disabled
+Fail-open: enabled
+Reference: observer binaries only; legacy shared-secret verifier omitted

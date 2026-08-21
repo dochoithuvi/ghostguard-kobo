@@ -1,0 +1,12 @@
+DCPRO GhostGuard Kobo v0.8.0-foundation
+
+SHIPPED TOUCH ENGINE IS SHADOW ONLY.
+EVIOCGRAB=OFF
+uinput=OFF
+PROTECT_ACTIVE=0
+INPUT_GRAB=NEVER
+FAIL_OPEN=1
+
+License validation is fail-closed: an invalid/missing license prevents the
+observer from starting. Input handling remains fail-open: GhostGuard never grabs
+or blocks the touchscreen in this release.
