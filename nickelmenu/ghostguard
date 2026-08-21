@@ -1,7 +1,9 @@
-# DCPRO GhostGuard Kobo v0.8.0-foundation — Compact NickelMenu
+# DCPRO GhostGuard Kobo v0.8.1-profile-v5 — Compact NickelMenu
 
 menu_item : main : GG · Status : cmd_output : 8000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh status
 menu_item : main : GG · Learn : cmd_output : 6000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh learn
+menu_item : main : GG · Profile : cmd_output : 8000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh profile-status
+menu_item : main : GG · Approve Profile : cmd_output : 7000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh approve
 menu_item : main : GG · Shadow : cmd_output : 6000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh shadow
 menu_item : main : GG · Stop : cmd_output : 5000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh stop
 menu_item : main : GG · Report : cmd_output : 9000 : /mnt/onboard/.adds/ghostguard/ghostguard.sh report

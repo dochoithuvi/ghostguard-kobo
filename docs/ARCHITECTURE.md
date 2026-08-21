@@ -2,10 +2,8 @@
 
 ## Stable reference
 
-`legacy/v0.7.3/` keeps the proven observer binaries and reference notes for
-regression analysis. The obsolete v0.7.3 shared-secret verifier and signing
-secret are intentionally excluded from this public repository. v0.8+ uses only
-the Ed25519 public-key verification design.
+`legacy/v0.7.3/` is kept unchanged for reproducibility and regression analysis.
+The package currently reuses its proven native observer binaries.
 
 ## v0.8 modular core
 
@@ -23,15 +21,12 @@ high.
 
 ## Profile V5 lifecycle
 
-Planned state machine:
-
 ```text
 CALIBRATION
-  -> READY
   -> PENDING_APPROVAL
-  -> APPROVED
   -> PROBATION
-  -> PROTECT
+  -> PROBATION_PASSED
+  -> (future Protect Beta only)
 ```
 
 Learning never silently enables Protect.
@@ -52,3 +47,24 @@ physical touchscreen
 
 Any sync loss, unsupported protocol, verifier/runtime fault, or watchdog failure
 must release the physical device and fail open.
+
+## v0.8.1 Profile V5 control-plane
+
+The low-level observer remains the proven v0.7.3-compatible Shadow binary and
+continues to write `data/profile.txt` (observer Profile V4). A separate
+`profile_manager.sh` owns `data/profile_v5.txt` and adds lifecycle policy without
+changing input handling.
+
+Responsibilities:
+
+- derive a stable controller fingerprint from touchscreen name, phys/uniq, bus
+  IDs, input capability masks and uevent data;
+- bind Profile V5 to Kobo serial + controller fingerprint;
+- archive/reset observer learning if that binding changes;
+- evaluate configurable readiness gates;
+- transition Learn -> pending approval -> probation -> probation passed;
+- keep `PROTECT_ACTIVE=0` throughout v0.8.1.
+
+The supervisor polls the Profile V5 manager while the observer is running. Once
+readiness is reached in LEARN mode, it changes the runtime mode to SHADOW and
+restarts only the observer child. This is fail-open: no input grab is involved.

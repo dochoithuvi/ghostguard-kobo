@@ -17,5 +17,13 @@
 
 ## Important
 
-v0.8.0-foundation is still Shadow-only. Do not enable EVIOCGRAB/uinput by
+v0.8.1-profile-v5 is still Shadow-only. Do not enable EVIOCGRAB/uinput by
 patching constants in the legacy observer.
+
+## Profile V5 first run
+
+1. Run `GG · Learn`.
+2. Use the device normally until `GG · Status` shows `Profile V5: PENDING_APPROVAL`.
+3. Select `GG · Approve Profile`.
+4. Complete two normal Shadow sessions (start/use/stop).
+5. Status will show `PROBATION_PASSED`; Protect remains OFF in v0.8.1.
