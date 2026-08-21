@@ -1,0 +1,73 @@
+name: publish-online
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Makefile'
+      - 'cmd/**'
+      - 'config/**'
+      - 'include/**'
+      - 'nickelmenu/**'
+      - 'package/**'
+      - 'scripts/**'
+      - 'src/**'
+      - 'DCPRO_GhostGuard_Kobo_OneClick.sh'
+      - '.github/workflows/publish-online.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+      - name: Build and test distribution
+        run: |
+          set -eux
+          make test
+          make package
+      - name: Publish stable online artifact and manifest
+        run: |
+          set -eux
+          VERSION="$(awk '/^VERSION :=/{print $3; exit}' Makefile)"
+          SRC="dist/GhostGuard-Kobo-v${VERSION}.zip"
+          DEST_DIR="packages/ghostguard-kobo/artifacts"
+          DEST="$DEST_DIR/GhostGuard-Kobo-v${VERSION}.zip"
+          mkdir -p "$DEST_DIR"
+          cp "$SRC" "$DEST"
+          SHA="$(sha256sum "$DEST" | awk '{print $1}')"
+          cat > manifest.online.json <<JSON
+          {
+            "manifest_version": 1,
+            "id": "ghostguard-kobo",
+            "name": "DCPRO GhostGuard Kobo",
+            "version": "$VERSION",
+            "artifact": "$DEST",
+            "sha256": "$SHA",
+            "install_root": "/mnt/onboard/.adds/ghostguard",
+            "license_registry": "https://raw.githubusercontent.com/dochoithuvi/ghostguard-kindle/main/licenses/licenses.json",
+            "license_signature": "https://raw.githubusercontent.com/dochoithuvi/ghostguard-kindle/main/licenses/licenses.sig"
+          }
+          JSON
+          printf '%s  %s\n' "$SHA" "$DEST" > packages/ghostguard-kobo/SHA256SUMS
+      - name: Commit distribution files
+        run: |
+          set -eux
+          git config user.name "DCPRO Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -- manifest.online.json packages/ghostguard-kobo/artifacts packages/ghostguard-kobo/SHA256SUMS
+          if git diff --cached --quiet; then
+            echo "Distribution already current."
+          else
+            VERSION="$(awk '/^VERSION :=/{print $3; exit}' Makefile)"
+            git commit -m "Publish GhostGuard Kobo ${VERSION} online artifact"
+            git push origin HEAD:main
+          fi
