@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.3
+VERSION := 0.8.3.1
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 CLANG ?= clang
@@ -28,6 +28,9 @@ test:
 	grep -q 'FAMILY_TIMING' src/ghostguardd.c
 	python3 tools/prepare_native.py
 	grep -q 'suppress_tail' .build/ghostguardd.c
+	grep -q 'observer_profile.ggdata' .build/ghostguardd.c
+	grep -q 'RUNTIME_FAULT.ggstate' .build/ghostguardd.c
+	! grep -q '/data/profile.txt' .build/ghostguardd.c
 	mkdir -p .build
 	cc -std=c99 -Wall -Wextra -Werror -Iinclude src/classifier.c tests/test_classifier.c -o .build/test_classifier
 	.build/test_classifier
@@ -35,6 +38,13 @@ test:
 	sh tests/test_status_library_cleanup.sh
 	sh tests/test_protect_beta.sh
 	go test ./cmd/gg-license-verify
+	$(MAKE) sync-package
+	sh -n package/.adds/ghostguard/*.sh
+	grep -q 'observer_profile.ggdata' package/.adds/ghostguard/ghostguard.sh
+	grep -q 'profile_v5.ggstate' package/.adds/ghostguard/profile_manager.sh
+	grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
+	! grep -q '\.txt' package/.adds/ghostguard/ghostguard.sh
+	! grep -q '\.txt' package/.adds/ghostguard/profile_manager.sh
 
 native-binaries:
 	python3 tools/prepare_native.py
@@ -54,6 +64,7 @@ sync-package:
 	cp scripts/ui_action.sh package/.adds/ghostguard/ui_action.sh
 	cp config/defaults.conf package/.adds/ghostguard/defaults.conf
 	cp nickelmenu/ghostguard package/.adds/nm/ghostguard
+	python3 tools/prepare_runtime.py
 	chmod +x package/.adds/ghostguard/*.sh 2>/dev/null || true
 
 package: sync-package native-binaries license-verifiers
