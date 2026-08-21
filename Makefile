@@ -6,6 +6,7 @@ DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 all: test license-verifiers package
 
 test:
+	sh -n scripts/*.sh
 	mkdir -p .build
 	cc -std=c99 -Wall -Wextra -Werror -Iinclude src/classifier.c tests/test_classifier.c -o .build/test_classifier
 	.build/test_classifier
