@@ -6,7 +6,7 @@ Controller fingerprint: enabled
 Auto Learn -> Ready: enabled
 Approval: manual
 Probation sessions: 2
-License: V4 Ed25519 / serial-bound
+License: shared GhostGuard registry / RSA-SHA256 / serial-hash
 Protect: disabled
 Input grab: never
 uinput: disabled
