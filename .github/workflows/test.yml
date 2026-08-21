@@ -22,6 +22,10 @@ jobs:
         run: make license-verifiers
       - name: Package smoke build
         run: |
-          make package
+          make package koboroot
           test -s dist/GhostGuard-Kobo-v0.8.1-profile-v5.zip
+          test -s dist/GhostGuard-Kobo-v0.8.1-profile-v5-KoboRoot.tgz
           unzip -t dist/GhostGuard-Kobo-v0.8.1-profile-v5.zip >/dev/null
+          tar -tzf dist/GhostGuard-Kobo-v0.8.1-profile-v5-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/ghostguard.sh$'
+          tar -tzf dist/GhostGuard-Kobo-v0.8.1-profile-v5-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/nm/ghostguard$'
+          ! tar -tzf dist/GhostGuard-Kobo-v0.8.1-profile-v5-KoboRoot.tgz | grep -Eq 'profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state'

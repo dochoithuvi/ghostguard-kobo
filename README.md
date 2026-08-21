@@ -17,23 +17,43 @@ This repository is intentionally separate from the Kindle GhostGuard codebase be
 - Invalidates/archives learned data if the controller fingerprint changes.
 - Uses independent evidence families in the classifier and symmetric edge-distance support.
 
-## Online / OneClick install
+## Recommended install: one file, no shell
 
-Stable OneClick endpoint:
+Stable one-file endpoint:
+
+```text
+https://raw.githubusercontent.com/dochoithuvi/ghostguard-kobo/main/KoboRoot.tgz
+```
+
+Install/update:
+
+1. Download `KoboRoot.tgz` from the stable endpoint above.
+2. Connect the Kobo by USB.
+3. Copy the file **without extracting or renaming it** to the hidden folder:
+
+```text
+KOBOeReader/.kobo/KoboRoot.tgz
+```
+
+4. Safely eject/disconnect the Kobo.
+5. Kobo processes the package using its normal boot-time update slot and reboots automatically.
+6. After boot, open `GG · Status`, then use `GG · Learn` or `GG · Shadow`.
+
+This package contains only the GhostGuard runtime, native binaries, defaults and NickelMenu configuration under `/mnt/onboard/.adds/`. It deliberately does **not** ship `profile_v5.txt`, signed license-cache files or other learned data, so installing a newer `KoboRoot.tgz` does not reset the existing GhostGuard profile.
+
+> NickelMenu itself is not bundled. If the device does not already have a compatible NickelMenu installation, install a compatible NickelMenu build separately for that Kobo firmware.
+
+GitHub Actions automatically rebuilds and refreshes the stable `KoboRoot.tgz` whenever runtime changes land on `main`. A versioned copy is also retained under `packages/ghostguard-kobo/artifacts/` and its SHA256 is published in `manifest.online.json` and `packages/ghostguard-kobo/SHA256SUMS`.
+
+## Shell OneClick (optional)
+
+For Kobo devices where KTerm/SSH is available, the existing online bootstrap remains supported:
 
 ```text
 https://raw.githubusercontent.com/dochoithuvi/ghostguard-kobo/main/DCPRO_GhostGuard_Kobo_OneClick.sh
 ```
 
-The OneClick installer reads:
-
-```text
-https://raw.githubusercontent.com/dochoithuvi/ghostguard-kobo/main/manifest.online.json
-```
-
-and downloads the current versioned ZIP from `packages/ghostguard-kobo/artifacts/`, verifies SHA256 when available, preserves `data/` + `SAFE_MODE`, then replaces the runtime and NickelMenu files.
-
-Typical shell invocation:
+Typical invocation:
 
 ```sh
 wget -qO /tmp/ggk-oneclick.sh \
@@ -41,7 +61,7 @@ wget -qO /tmp/ggk-oneclick.sh \
   && sh /tmp/ggk-oneclick.sh
 ```
 
-GitHub Actions automatically builds/tests the ARMv7/AArch64 package and publishes the current artifact + `manifest.online.json` whenever runtime changes land on `main`.
+The shell installer reads `manifest.online.json`, downloads the current ZIP artifact, verifies SHA256 when available, preserves `data/` + `SAFE_MODE`, then updates the runtime and NickelMenu files.
 
 ## Shared GhostGuard license
 
@@ -102,15 +122,22 @@ PROBATION_PASSED
 
 ## Build
 
-Requirements: Go 1.22+ and a C compiler.
+Requirements: Go 1.22+, a C compiler, `zip`, `tar`, and `gzip`.
 
 ```sh
 make test
-make license-verifiers
 make package
+make koboroot
 ```
 
-`make test` covers classifier logic, Profile V5 lifecycle and shared signed-registry verification including tamper/serial mismatch cases.
+Build outputs:
+
+```text
+dist/GhostGuard-Kobo-v0.8.1-profile-v5.zip
+dist/GhostGuard-Kobo-v0.8.1-profile-v5-KoboRoot.tgz
+```
+
+`make test` covers classifier logic, Profile V5 lifecycle and shared signed-registry verification including tamper/serial mismatch cases. CI also validates that the KoboRoot archive has the correct `/mnt/onboard/.adds/...` paths and does not contain learned-profile or license-cache state.
 
 ## Repository layout
 
