@@ -7,6 +7,7 @@ RUNFLAG="$RUN/RUN"
 MODEFILE="$RUN/mode"
 INPUTFILE="$RUN/input_device"
 CHILDPID="$RUN/daemon.pid"
+PROFILE_MGR="$BASE/profile_manager.sh"
 
 arch_name() {
     case "$(uname -m 2>/dev/null)" in
@@ -17,14 +18,10 @@ arch_name() {
 }
 
 find_touch() {
-    # Prefer the device selected and validated by ghostguard.sh. This prevents
-    # controller/supervisor detection drift on Kobo variants whose touchscreen
-    # is only discoverable through /proc/bus/input/devices.
     if [ -r "$INPUTFILE" ]; then
         D="$(head -n 1 "$INPUTFILE" 2>/dev/null | tr -d '\r\n')"
         [ -n "$D" ] && [ -r "$D" ] && { echo "$D"; return 0; }
     fi
-
     for P in /sys/class/input/event*; do
         [ -e "$P" ] || continue
         N="$(cat "$P/device/name" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
@@ -35,7 +32,6 @@ find_touch() {
                 ;;
         esac
     done
-
     if [ -r /proc/bus/input/devices ]; then
         awk '
             BEGIN{IGNORECASE=1; name=""; handlers=""}
@@ -68,6 +64,21 @@ while [ -f "$RUNFLAG" ]; do
     echo "$(date) START mode=$(cat "$MODEFILE" 2>/dev/null) input=$INPUT arch=$ARCH" >> "$LOG"
     "$BIN" >> "$LOG" 2>&1 &
     C=$!; echo "$C" > "$CHILDPID"
+    while kill -0 "$C" 2>/dev/null; do
+        sleep 5
+        [ -f "$RUNFLAG" ] || break
+        if [ -x "$PROFILE_MGR" ]; then
+            "$PROFILE_MGR" sync >/dev/null 2>&1 || true
+            PSTATE="$("$PROFILE_MGR" state 2>/dev/null || echo CALIBRATION)"
+            CURMODE="$(cat "$MODEFILE" 2>/dev/null)"
+            if [ "$CURMODE" = "LEARN" ] && [ "$PSTATE" = "PENDING_APPROVAL" ]; then
+                echo SHADOW > "$MODEFILE"
+                echo "$(date) PROFILE_READY -> SHADOW pending approval" >> "$LOG"
+                kill "$C" 2>/dev/null || true
+                break
+            fi
+        fi
+    done
     wait "$C"
     RC=$?
     rm -f "$CHILDPID"

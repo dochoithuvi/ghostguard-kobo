@@ -1,5 +1,5 @@
 #!/bin/sh
-# DCPRO GhostGuard Kobo v0.8.0 Foundation / Shadow
+# DCPRO GhostGuard Kobo v0.8.1 Profile V5 / Shadow
 # Safe native learning/shadow observer with compact NickelMenu controls.
 # No EVIOCGRAB, no uinput, no touch blocking in this release.
 
@@ -13,12 +13,13 @@ RUNFLAG="$RUN/RUN"
 MODEFILE="$RUN/mode"
 INPUTFILE="$RUN/input_device"
 SAFE="$BASE/SAFE_MODE"
-KEY="$BASE/license.key"
 LICENSE_STATE="$DATA/license_last_date"
 LICENSE_STATUS="$DATA/LICENSE_STATUS.txt"
 DEVICE_INFO="$DATA/KOBO_DEVICE_ID.txt"
 LOG="$DATA/native.log"
 REPORT_ROOT=/mnt/onboard/GhostGuard_Reports
+PROFILE_MGR="$BASE/profile_manager.sh"
+PROFILE_V5="$DATA/profile_v5.txt"
 
 mkdir -p "$DATA" "$DATA/reports" "$RUN" 2>/dev/null
 
@@ -47,7 +48,6 @@ binary_path() {
 }
 
 find_touch() {
-    # Prefer explicit touchscreen-like names in sysfs.
     for P in /sys/class/input/event*; do
         [ -e "$P" ] || continue
         N="$(cat "$P/device/name" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
@@ -58,16 +58,14 @@ find_touch() {
                 ;;
         esac
     done
-
-    # Fallback: look for an event handler in a block whose name resembles touch.
     if [ -r /proc/bus/input/devices ]; then
         awk '
             BEGIN{IGNORECASE=1; name=""; handlers=""}
             /^N: Name=/{name=$0}
             /^H: Handlers=/{handlers=$0}
-            /^$/{
+            /^$/ {
                 if (name ~ /(touch|cyttsp|zforce|elan|goodix|focal|fts|mtk)/) {
-                    n=split(handlers,a," ");
+                    n=split(handlers,a," ")
                     for(i=1;i<=n;i++) if(a[i] ~ /^event[0-9]+$/){print "/dev/input/" a[i]; exit}
                 }
                 name="";handlers=""
@@ -80,7 +78,6 @@ write_device_info() {
     SERIAL="$(clean_serial)"
     [ -n "$SERIAL" ] || SERIAL=KOBO_UNKNOWN
     FW="$(cut -d, -f3 /mnt/onboard/.kobo/version 2>/dev/null | tr -d '\r\n')"
-    MODEL="$(grep -m1 '^N: Name=' /proc/bus/input/devices 2>/dev/null | sed 's/^N: Name=//')"
     INPUT="$(find_touch)"
     {
         echo "DCPRO_GHOSTGUARD_KOBO_DEVICE_V1"
@@ -88,17 +85,18 @@ write_device_info() {
         echo "ARCH=$(arch_name)"
         echo "FIRMWARE=$FW"
         echo "INPUT_DEVICE=$INPUT"
-        echo "LICENSE_PATH=$KEY"
+        echo "LICENSE_SOURCE=SHARED_ONLINE_REGISTRY"
+        echo "LICENSE_REGISTRY=ghostguard-kindle/licenses/licenses.json"
         echo "ENGINE=NATIVE_EVDEV"
-        echo "LICENSE_FORMAT=4"
-        echo "LICENSE_SIGNATURE=ED25519"
+        echo "LICENSE_FORMAT=SHARED_REGISTRY_V1"
+        echo "LICENSE_SIGNATURE=RSA-SHA256"
         echo "PROTECT_ACTIVE=0"
     } > "$DEVICE_INFO"
 }
 
 license_check() {
     SERIAL="$(clean_serial)"
-    DCPRO_LICENSE_PATH="$KEY" DCPRO_LICENSE_STATE="$LICENSE_STATE" \
+    DCPRO_LICENSE_STATE="$LICENSE_STATE" \
         "$BASE/license_bridge.sh" check "$SERIAL" > "$LICENSE_STATUS.tmp" 2>&1
     RC=$?
     mv -f "$LICENSE_STATUS.tmp" "$LICENSE_STATUS" 2>/dev/null || true
@@ -135,112 +133,53 @@ migrate_learning_old() {
     fi
 }
 
+profile_value() { K="$1"; [ -f "$DATA/profile.txt" ] || return 0; sed -n "s/^${K}=//p" "$DATA/profile.txt" 2>/dev/null | head -n 1; }
+v5_value() { K="$1"; [ -f "$PROFILE_V5" ] || return 0; sed -n "s/^${K}=//p" "$PROFILE_V5" 2>/dev/null | head -n 1; }
+profile_sync() { [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" sync >/dev/null 2>&1 || true; }
+profile_state() { [ -x "$PROFILE_MGR" ] || { echo CALIBRATION; return; }; "$PROFILE_MGR" state 2>/dev/null || echo CALIBRATION; }
+
+touch_name() { D="$(find_touch)"; E="$(basename "$D" 2>/dev/null)"; [ -n "$E" ] && cat "/sys/class/input/$E/device/name" 2>/dev/null; }
+controller_class() { N="$(touch_name | tr '[:upper:]' '[:lower:]')"; case "$N" in *fts*|*focal*) echo FocalTech ;; *elan*) echo ELAN ;; *zforce*) echo zForce ;; *goodix*) echo Goodix ;; *) echo Generic ;; esac; }
+
+stop_engine() {
+    rm -f "$RUNFLAG"
+    if [ -f "$CHILDPID" ]; then C="$(cat "$CHILDPID" 2>/dev/null)"; [ -n "$C" ] && kill "$C" 2>/dev/null || true; fi
+    if [ -f "$PIDFILE" ]; then P="$(cat "$PIDFILE" 2>/dev/null)"; [ -n "$P" ] && kill "$P" 2>/dev/null || true; fi
+    sleep 1
+    rm -f "$PIDFILE" "$CHILDPID"
+    [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" session-end >/dev/null 2>&1 || true
+    echo "GhostGuard đã dừng. Cảm ứng không bị grab ở bất kỳ thời điểm nào."
+}
+
 start_engine() {
     MODE="$1"
     write_device_info
     migrate_learning_old
-    if [ -f "$SAFE" ]; then
-        echo "SAFE_MODE đang bật. Hãy tắt SAFE_MODE trước."
-        return 2
-    fi
-    if is_running; then
-        CUR="$(cat "$MODEFILE" 2>/dev/null)"
-        if [ "$CUR" = "$MODE" ]; then
-            echo "GhostGuard đang chạy: $MODE"
-            return 0
-        fi
-        stop_engine >/dev/null 2>&1
-        sleep 1
-    fi
-    if ! license_check; then
-        echo "License chưa hợp lệ."
-        cat "$LICENSE_STATUS" 2>/dev/null
-        echo "DEVICE_ID=$(clean_serial)"
-        return 3
-    fi
-    INPUT="$(find_touch)"
-    if [ -z "$INPUT" ] || [ ! -r "$INPUT" ]; then
-        echo "Không tìm thấy touchscreen evdev đọc được."
-        write_device_info
-        return 4
-    fi
-    BIN="$(binary_path)"
-    if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then
-        echo "Không có native binary phù hợp: $(uname -m 2>/dev/null)"
-        return 5
-    fi
+    if [ -f "$SAFE" ]; then echo "SAFE_MODE đang bật. Hãy tắt SAFE_MODE trước."; return 2; fi
+    if is_running; then CUR="$(cat "$MODEFILE" 2>/dev/null)"; if [ "$CUR" = "$MODE" ]; then echo "GhostGuard đang chạy: $MODE"; return 0; fi; stop_engine >/dev/null 2>&1; sleep 1; fi
+    if ! license_check; then echo "License chưa hợp lệ."; cat "$LICENSE_STATUS" 2>/dev/null; echo "DEVICE_ID=$(clean_serial)"; return 3; fi
+    INPUT="$(find_touch)"; if [ -z "$INPUT" ] || [ ! -r "$INPUT" ]; then echo "Không tìm thấy touchscreen evdev đọc được."; write_device_info; return 4; fi
     echo "$INPUT" > "$INPUTFILE"
-    echo "$MODE" > "$MODEFILE"
-    echo 1 > "$RUNFLAG"
-    rm -f "$DATA/RUNTIME_FAULT.txt"
-    if command -v setsid >/dev/null 2>&1; then
-        setsid "$BASE/supervisor.sh" >/dev/null 2>&1 &
-    elif command -v nohup >/dev/null 2>&1; then
-        nohup "$BASE/supervisor.sh" >/dev/null 2>&1 &
-    else
-        "$BASE/supervisor.sh" >/dev/null 2>&1 &
+    if [ -x "$PROFILE_MGR" ]; then
+        "$PROFILE_MGR" ensure-binding >/dev/null 2>&1 || true
+        PSTATE="$(profile_state)"
+        if [ "$MODE" = "LEARN" ]; then case "$PSTATE" in PENDING_APPROVAL) echo "Profile V5 đã READY. Chuyển sang SHADOW để chờ duyệt."; MODE=SHADOW ;; PROBATION|PROBATION_PASSED) echo "Profile V5 đã được duyệt. Giữ SHADOW; muốn học lại hãy Reset Profile."; MODE=SHADOW ;; esac; fi
     fi
-    SP=$!
-    echo "$SP" > "$PIDFILE"
-    sleep 1
-    if is_running; then
-        echo "GhostGuard Native đã chạy: $MODE"
-        echo "Input: $INPUT"
-        echo "Protect: OFF (fail-open)"
-        return 0
-    fi
-    echo "Không khởi động được supervisor."
-    return 6
-}
-
-stop_engine() {
-    rm -f "$RUNFLAG"
-    if [ -f "$CHILDPID" ]; then
-        C="$(cat "$CHILDPID" 2>/dev/null)"; [ -n "$C" ] && kill "$C" 2>/dev/null || true
-    fi
-    if [ -f "$PIDFILE" ]; then
-        P="$(cat "$PIDFILE" 2>/dev/null)"; [ -n "$P" ] && kill "$P" 2>/dev/null || true
-    fi
-    sleep 1
-    rm -f "$PIDFILE" "$CHILDPID"
-    echo "GhostGuard đã dừng. Cảm ứng không bị grab ở bất kỳ thời điểm nào."
-}
-
-profile_value() {
-    K="$1"
-    [ -f "$DATA/profile.txt" ] || return 0
-    sed -n "s/^${K}=//p" "$DATA/profile.txt" 2>/dev/null | head -n 1
-}
-
-touch_name() {
-    D="$(find_touch)"
-    E="$(basename "$D" 2>/dev/null)"
-    [ -n "$E" ] && cat "/sys/class/input/$E/device/name" 2>/dev/null
-}
-
-controller_class() {
-    N="$(touch_name | tr '[:upper:]' '[:lower:]')"
-    case "$N" in
-        *fts*|*focal*) echo FocalTech ;;
-        *elan*) echo ELAN ;;
-        *zforce*) echo zForce ;;
-        *goodix*) echo Goodix ;;
-        *) echo Generic ;;
-    esac
+    BIN="$(binary_path)"; if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then echo "Không có native binary phù hợp: $(uname -m 2>/dev/null)"; return 5; fi
+    echo "$MODE" > "$MODEFILE"; echo 1 > "$RUNFLAG"; rm -f "$DATA/RUNTIME_FAULT.txt"
+    if command -v setsid >/dev/null 2>&1; then setsid "$BASE/supervisor.sh" >/dev/null 2>&1 &
+    elif command -v nohup >/dev/null 2>&1; then nohup "$BASE/supervisor.sh" >/dev/null 2>&1 &
+    else "$BASE/supervisor.sh" >/dev/null 2>&1 & fi
+    SP=$!; echo "$SP" > "$PIDFILE"; sleep 1
+    if is_running; then [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" session-start >/dev/null 2>&1 || true; echo "GhostGuard Native đã chạy: $MODE"; echo "Input: $INPUT"; echo "Profile: $(profile_state)"; echo "Protect: OFF (fail-open)"; return 0; fi
+    echo "Không khởi động được supervisor."; return 6
 }
 
 status_engine() {
     write_device_info
-    if is_running; then
-        STATE="RUNNING"
-        MODE_NOW="$(cat "$MODEFILE" 2>/dev/null)"
-    else
-        STATE="STOPPED"
-        MODE_NOW="-"
-    fi
+    if is_running; then STATE="RUNNING"; MODE_NOW="$(cat "$MODEFILE" 2>/dev/null)"; else STATE="STOPPED"; MODE_NOW="-"; fi
     if license_check; then LIC="OK"; else LIC="DENIED"; fi
     [ -f "$SAFE" ] && SAFE_NOW="ON" || SAFE_NOW="OFF"
-
     C="$(profile_value CONTACTS)"; [ -n "$C" ] || C=0
     I="$(profile_value INCOMPLETE_CONTACTS)"; [ -n "$I" ] || I=0
     L="$(profile_value RISK_LOW)"; [ -n "$L" ] || L=0
@@ -249,77 +188,41 @@ status_engine() {
     W="$(profile_value WOULD_DROP)"; [ -n "$W" ] || W=0
     BC="$(profile_value BASELINE_COUNT)"; [ -n "$BC" ] || BC=0
     RM="$(profile_value RISK_MAX)"; [ -n "$RM" ] || RM=0
-
-    echo "GhostGuard Kobo v0.8.0-foundation"
+    echo "GhostGuard Kobo v0.8.1-profile-v5"
     echo "Device: $(clean_serial) | $(controller_class)"
     echo "$STATE | $MODE_NOW | License: $LIC"
     echo "Contacts: $C | Incomplete: $I"
     echo "Risk L/M/H: $L/$M/$H | Candidate: $W"
+    profile_sync
+    PS="$(v5_value STATE)"; [ -n "$PS" ] || PS=CALIBRATION
+    PR="$(v5_value PROFILE_READY)"; [ -n "$PR" ] || PR=0
+    PC="$(v5_value PROBATION_COMPLETED)"; [ -n "$PC" ] || PC=0
+    PN="$(v5_value PROBATION_REQUIRED)"; [ -n "$PN" ] || PN=2
+    FP="$(v5_value CONTROLLER_FINGERPRINT)"; [ -n "$FP" ] || FP=unknown
     echo "Baseline: $BC | Risk max: $RM/100"
+    echo "Profile V5: $PS | Ready: $PR | Probation: $PC/$PN"
+    echo "Fingerprint: $FP"
     echo "Touch: $(basename "$(find_touch)" 2>/dev/null) $(touch_name)"
     echo "Protect OFF | Grab NEVER | Safe: $SAFE_NOW"
 }
 
-status_full() {
-    status_engine
-    echo
-    echo "DEVICE_ID: $(clean_serial)"
-    echo "ARCH: $(arch_name)"
-    [ -f "$LICENSE_STATUS" ] && { echo "--- License ---"; cat "$LICENSE_STATUS"; }
-    [ -f "$DATA/profile.txt" ] && { echo "--- Profile ---"; cat "$DATA/profile.txt"; }
-    [ -f "$DATA/RUNTIME_FAULT.txt" ] && { echo "--- Runtime fault ---"; cat "$DATA/RUNTIME_FAULT.txt"; }
-}
+status_full() { status_engine; echo; echo "DEVICE_ID: $(clean_serial)"; echo "ARCH: $(arch_name)"; [ -f "$LICENSE_STATUS" ] && { echo "--- License ---"; cat "$LICENSE_STATUS"; }; [ -f "$DATA/profile.txt" ] && { echo "--- Observer Profile ---"; cat "$DATA/profile.txt"; }; [ -f "$PROFILE_V5" ] && { echo "--- Profile V5 ---"; cat "$PROFILE_V5"; }; [ -f "$DATA/RUNTIME_FAULT.txt" ] && { echo "--- Runtime fault ---"; cat "$DATA/RUNTIME_FAULT.txt"; }; }
 
 make_report() {
     mkdir -p "$REPORT_ROOT" "$DATA/reports" 2>/dev/null
-    TS="$(date +%Y%m%d_%H%M%S 2>/dev/null)"
-    [ -n "$TS" ] || TS=unknown
+    TS="$(date +%Y%m%d_%H%M%S 2>/dev/null)"; [ -n "$TS" ] || TS=unknown
     SERIAL="$(clean_serial)"; [ -n "$SERIAL" ] || SERIAL=KOBO_UNKNOWN
-
-    TMP="$DATA/reports/report_$TS"
-    LATEST="$REPORT_ROOT/LATEST"
-    LAST="$REPORT_ROOT/REPORT_LAST.txt"
-
-    rm -rf "$TMP" "$LATEST" 2>/dev/null
-    mkdir -p "$TMP" "$LATEST" 2>/dev/null
-
-    # Refresh current metadata first.
-    write_device_info
-    license_check >/dev/null 2>&1 || true
-
+    TMP="$DATA/reports/report_$TS"; LATEST="$REPORT_ROOT/LATEST"; LAST="$REPORT_ROOT/REPORT_LAST.txt"
+    rm -rf "$TMP" "$LATEST" 2>/dev/null; mkdir -p "$TMP" "$LATEST" 2>/dev/null
+    write_device_info; license_check >/dev/null 2>&1 || true
     cp "$DEVICE_INFO" "$TMP/" 2>/dev/null || true
-    cp "$DATA/profile.txt" "$TMP/" 2>/dev/null || true
+    cp "$DATA/profile.txt" "$TMP/observer_profile.txt" 2>/dev/null || true
+    cp "$PROFILE_V5" "$TMP/profile_v5.txt" 2>/dev/null || true
     cp "$DATA/contacts.csv" "$TMP/" 2>/dev/null || true
     cp "$DATA/RUNTIME_FAULT.txt" "$TMP/" 2>/dev/null || true
     cp "$LICENSE_STATUS" "$TMP/" 2>/dev/null || true
     cp "$LOG" "$TMP/" 2>/dev/null || true
-
-    # Exact CSV snapshot at report time. This is independent from profile flush cadence.
-    if [ -f "$DATA/contacts.csv" ]; then
-        awk -F, '
-            NR==1 { next }
-            {
-                n++
-                if ($11=="INCOMPLETE") inc++
-                else {
-                    r=$8+0
-                    if (r<35) low++
-                    else if (r<65) med++
-                    else high++
-                    if ($12=="WOULD_DROP") cand++
-                }
-            }
-            END {
-                print "CSV_CONTACTS=" n+0
-                print "CSV_INCOMPLETE=" inc+0
-                print "CSV_RISK_LOW=" low+0
-                print "CSV_RISK_MEDIUM=" med+0
-                print "CSV_RISK_HIGH=" high+0
-                print "CSV_CANDIDATES=" cand+0
-            }
-        ' "$DATA/contacts.csv" > "$TMP/CSV_LIVE_SNAPSHOT.txt" 2>/dev/null || true
-    fi
-
+    if [ -f "$DATA/contacts.csv" ]; then awk -F, 'NR==1{next}{n++;if($11=="INCOMPLETE")inc++;else{r=$8+0;if(r<35)low++;else if(r<65)med++;else high++;if($12=="WOULD_DROP")cand++}}END{print "CSV_CONTACTS="n+0;print "CSV_INCOMPLETE="inc+0;print "CSV_RISK_LOW="low+0;print "CSV_RISK_MEDIUM="med+0;print "CSV_RISK_HIGH="high+0;print "CSV_CANDIDATES="cand+0}' "$DATA/contacts.csv" > "$TMP/CSV_LIVE_SNAPSHOT.txt" 2>/dev/null || true; fi
     {
         echo "DATE=$(date 2>/dev/null)"
         echo "UNAME=$(uname -a 2>/dev/null)"
@@ -329,77 +232,36 @@ make_report() {
         echo "TOUCH=$(find_touch)"
         echo "TOUCH_NAME=$(touch_name)"
         echo "CONTROLLER_CLASS=$(controller_class)"
+        profile_sync
+        echo "PROFILE_STATE=$(v5_value STATE)"
+        echo "CONTROLLER_FINGERPRINT=$(v5_value CONTROLLER_FINGERPRINT)"
         echo "ARCH=$(arch_name)"
         echo "INPUTS:"
-        for P in /sys/class/input/event*; do
-            [ -e "$P" ] && echo "$(basename "$P"): $(cat "$P/device/name" 2>/dev/null)"
-        done
+        for P in /sys/class/input/event*; do [ -e "$P" ] && echo "$(basename "$P"): $(cat "$P/device/name" 2>/dev/null)"; done
     } > "$TMP/SYSTEM.txt"
-
-    # Always expose an unpacked latest report so USB users can retrieve it
-    # even if this firmware lacks gzip/tar options.
     cp -R "$TMP"/. "$LATEST"/ 2>/dev/null || true
-
-    OUT=""
-    ARCHIVE_ERROR=""
-
-    # Try regular tar first.
-    if command -v tar >/dev/null 2>&1; then
-        CAND="$REPORT_ROOT/DCPRO_GhostGuard_KoboNative_${SERIAL}_${TS}.tar.gz"
-        if tar -czf "$CAND" -C "$TMP" . 2>"$TMP/tar_error.txt" && [ -s "$CAND" ]; then
-            OUT="$CAND"
-        else
-            rm -f "$CAND" 2>/dev/null
-            CAND="$REPORT_ROOT/DCPRO_GhostGuard_KoboNative_${SERIAL}_${TS}.tar"
-            if tar -cf "$CAND" -C "$TMP" . 2>>"$TMP/tar_error.txt" && [ -s "$CAND" ]; then
-                OUT="$CAND"
-            fi
-        fi
-    fi
-
-    # BusyBox fallback if tar command or its gzip mode is unusual.
-    if [ -z "$OUT" ] && command -v busybox >/dev/null 2>&1; then
-        CAND="$REPORT_ROOT/DCPRO_GhostGuard_KoboNative_${SERIAL}_${TS}.tar"
-        if busybox tar -cf "$CAND" -C "$TMP" . 2>>"$TMP/tar_error.txt" && [ -s "$CAND" ]; then
-            OUT="$CAND"
-        fi
-    fi
-
-    if [ -f "$TMP/tar_error.txt" ]; then
-        cp "$TMP/tar_error.txt" "$LATEST/" 2>/dev/null || true
-        ARCHIVE_ERROR="$(tail -n 3 "$TMP/tar_error.txt" 2>/dev/null)"
-    fi
-
-    {
-        echo "DCPRO GhostGuard Kobo Report"
-        echo "TIME=$TS"
-        echo "DEVICE_ID=$SERIAL"
-        echo "LATEST_FOLDER=$LATEST"
-        if [ -n "$OUT" ]; then
-            echo "ARCHIVE=$OUT"
-            echo "RESULT=OK"
-        else
-            echo "ARCHIVE=NONE"
-            echo "RESULT=LATEST_FOLDER_ONLY"
-            [ -n "$ARCHIVE_ERROR" ] && echo "ARCHIVE_ERROR=$ARCHIVE_ERROR"
-        fi
-    } > "$LAST"
-
+    OUT=""; ARCHIVE_ERROR=""
+    if command -v tar >/dev/null 2>&1; then CAND="$REPORT_ROOT/DCPRO_GhostGuard_KoboNative_${SERIAL}_${TS}.tar.gz"; if tar -czf "$CAND" -C "$TMP" . 2>"$TMP/tar_error.txt" && [ -s "$CAND" ]; then OUT="$CAND"; else rm -f "$CAND" 2>/dev/null; CAND="$REPORT_ROOT/DCPRO_GhostGuard_KoboNative_${SERIAL}_${TS}.tar"; if tar -cf "$CAND" -C "$TMP" . 2>>"$TMP/tar_error.txt" && [ -s "$CAND" ]; then OUT="$CAND"; fi; fi; fi
+    if [ -z "$OUT" ] && command -v busybox >/dev/null 2>&1; then CAND="$REPORT_ROOT/DCPRO_GhostGuard_KoboNative_${SERIAL}_${TS}.tar"; if busybox tar -cf "$CAND" -C "$TMP" . 2>>"$TMP/tar_error.txt" && [ -s "$CAND" ]; then OUT="$CAND"; fi; fi
+    if [ -f "$TMP/tar_error.txt" ]; then cp "$TMP/tar_error.txt" "$LATEST/" 2>/dev/null || true; ARCHIVE_ERROR="$(tail -n 3 "$TMP/tar_error.txt" 2>/dev/null)"; fi
+    { echo "DCPRO GhostGuard Kobo Report"; echo "TIME=$TS"; echo "DEVICE_ID=$SERIAL"; echo "LATEST_FOLDER=$LATEST"; if [ -n "$OUT" ]; then echo "ARCHIVE=$OUT"; echo "RESULT=OK"; else echo "ARCHIVE=NONE"; echo "RESULT=LATEST_FOLDER_ONLY"; [ -n "$ARCHIVE_ERROR" ] && echo "ARCHIVE_ERROR=$ARCHIVE_ERROR"; fi; } > "$LAST"
     sync 2>/dev/null || true
-
-    if [ -n "$OUT" ]; then
-        echo "Report OK"
-        echo "$OUT"
-        echo "Backup folder: $LATEST"
-        rm -rf "$TMP" 2>/dev/null
-        return 0
-    fi
-
-    echo "Archive không tạo được, nhưng dữ liệu đã lưu an toàn tại:"
-    echo "$LATEST"
-    echo "Chi tiết: $LAST"
-    return 0
+    if [ -n "$OUT" ]; then echo "Report OK"; echo "$OUT"; echo "Backup folder: $LATEST"; rm -rf "$TMP" 2>/dev/null; return 0; fi
+    echo "Archive không tạo được, nhưng dữ liệu đã lưu an toàn tại:"; echo "$LATEST"; echo "Chi tiết: $LAST"; return 0
 }
+
+approve_profile() {
+    write_device_info
+    if ! license_check; then echo "License chưa hợp lệ."; cat "$LICENSE_STATUS" 2>/dev/null; return 3; fi
+    [ -x "$PROFILE_MGR" ] || { echo "Thiếu profile_manager.sh"; return 5; }
+    "$PROFILE_MGR" approve || return $?
+    echo SHADOW > "$MODEFILE"
+    if is_running && [ -f "$CHILDPID" ]; then C="$(cat "$CHILDPID" 2>/dev/null)"; [ -n "$C" ] && kill "$C" 2>/dev/null || true; fi
+    "$PROFILE_MGR" session-start >/dev/null 2>&1 || true
+    echo "Đã duyệt Profile V5. Bắt đầu Probation ở SHADOW; Protect vẫn OFF."
+}
+
+reset_profile() { stop_engine >/dev/null 2>&1 || true; [ -x "$PROFILE_MGR" ] || { echo "Thiếu profile_manager.sh"; return 5; }; "$PROFILE_MGR" reset; echo "Hãy chạy GG · Learn để học lại profile."; }
 
 case "${1:-status}" in
     start|learn) start_engine LEARN ;;
@@ -408,9 +270,13 @@ case "${1:-status}" in
     status) status_engine ;;
     status-full) status_full ;;
     report) write_device_info; make_report ;;
+    approve) approve_profile ;;
+    profile-status) [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" status || echo "Thiếu profile_manager.sh" ;;
+    profile-reset) reset_profile ;;
+    fingerprint) echo "Input: $(find_touch)"; [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" fingerprint || true ;;
     safe-on) stop_engine >/dev/null 2>&1; echo 1 > "$SAFE"; echo "SAFE_MODE: ON" ;;
     safe-off) rm -f "$SAFE"; echo "SAFE_MODE: OFF" ;;
     device-id) write_device_info; cat "$DEVICE_INFO" ;;
     license) write_device_info; license_check; cat "$LICENSE_STATUS"; exit $? ;;
-    *) echo "Usage: $0 {learn|shadow|stop|status|status-full|report|safe-on|safe-off|device-id|license}"; exit 1 ;;
+    *) echo "Usage: $0 {learn|shadow|stop|status|status-full|report|approve|profile-status|profile-reset|fingerprint|safe-on|safe-off|device-id|license}"; exit 1 ;;
 esac
