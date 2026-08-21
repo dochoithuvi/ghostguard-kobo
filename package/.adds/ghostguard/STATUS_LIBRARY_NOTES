@@ -1,0 +1,5 @@
+GhostGuard Kobo v0.8.2.1
+- Customer Status shows learning progress (Touches / Baseline / Data quality / Probation).
+- Idle runtime state is archived to .ggstate/.ggdata to avoid Kobo library indexing.
+- GhostGuard - Stop triggers a Nickel book rescan after cleanup.
+- Protect remains OFF / fail-open.
