@@ -5,6 +5,16 @@ p = Path("src/ghostguardd.c")
 original = p.read_text()
 src = original
 
+# Runtime state must never use document-like extensions or Nickel may import it
+# into My Books while the engine is active.
+for old, new, label in (
+    ("/mnt/onboard/.adds/ghostguard/data/profile.txt", "/mnt/onboard/.adds/ghostguard/data/observer_profile.ggdata", "profile path"),
+    ("/mnt/onboard/.adds/ghostguard/data/RUNTIME_FAULT.txt", "/mnt/onboard/.adds/ghostguard/data/RUNTIME_FAULT.ggstate", "fault path"),
+):
+    if old not in src:
+        raise SystemExit(f"native private-state anchor missing: {label}")
+    src = src.replace(old, new, 1)
+
 old_release = 'static void release_protect(const char*reason){if(protect_active&&phys_fd>=0)k_ioctl(phys_fd,EVIOCGRAB,0);protect_active=0;write_text(protect_status_path,reason);write_profile();}'
 new_release = 'static void release_protect(const char*reason){if(protect_active&&phys_fd>=0)k_ioctl(phys_fd,EVIOCGRAB,0);protect_active=0;if(uinput_fd>=0){k_ioctl(uinput_fd,UI_DEV_DESTROY,0);k_close(uinput_fd);uinput_fd=-1;uinput_ready=0;}write_text(protect_status_path,reason);write_profile();}'
 old_q = 'static struct input_event qbuf[QMAX];static u32 qcount=0,qsec=0,qusec=0;static int qactive=0,qpassthrough=0,qmulti=0;'
