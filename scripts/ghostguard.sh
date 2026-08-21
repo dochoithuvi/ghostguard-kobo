@@ -1,5 +1,5 @@
 #!/bin/sh
-# DCPRO GhostGuard Kobo v0.8.1 Profile V5 / Shadow
+# DCPRO GhostGuard Kobo v0.8.1.1 Profile V5 / Shadow
 # Safe native learning/shadow observer with compact NickelMenu controls.
 # No EVIOCGRAB, no uinput, no touch blocking in this release.
 
@@ -94,14 +94,19 @@ write_device_info() {
     } > "$DEVICE_INFO"
 }
 
-license_check() {
+license_run() {
+    LACTION="$1"
     SERIAL="$(clean_serial)"
     DCPRO_LICENSE_STATE="$LICENSE_STATE" \
-        "$BASE/license_bridge.sh" check "$SERIAL" > "$LICENSE_STATUS.tmp" 2>&1
+        "$BASE/license_bridge.sh" "$LACTION" "$SERIAL" > "$LICENSE_STATUS.tmp" 2>&1
     RC=$?
     mv -f "$LICENSE_STATUS.tmp" "$LICENSE_STATUS" 2>/dev/null || true
     return $RC
 }
+
+license_check() { license_run check; }
+license_sync() { license_run sync; }
+license_cache() { license_run cache; }
 
 is_running() {
     [ -f "$PIDFILE" ] || return 1
@@ -178,7 +183,7 @@ start_engine() {
 status_engine() {
     write_device_info
     if is_running; then STATE="RUNNING"; MODE_NOW="$(cat "$MODEFILE" 2>/dev/null)"; else STATE="STOPPED"; MODE_NOW="-"; fi
-    if license_check; then LIC="OK"; else LIC="DENIED"; fi
+    if license_cache; then LIC="OK"; else LIC="DENIED/NOT_SYNCED"; fi
     [ -f "$SAFE" ] && SAFE_NOW="ON" || SAFE_NOW="OFF"
     C="$(profile_value CONTACTS)"; [ -n "$C" ] || C=0
     I="$(profile_value INCOMPLETE_CONTACTS)"; [ -n "$I" ] || I=0
@@ -188,7 +193,7 @@ status_engine() {
     W="$(profile_value WOULD_DROP)"; [ -n "$W" ] || W=0
     BC="$(profile_value BASELINE_COUNT)"; [ -n "$BC" ] || BC=0
     RM="$(profile_value RISK_MAX)"; [ -n "$RM" ] || RM=0
-    echo "GhostGuard Kobo v0.8.1-profile-v5"
+    echo "GhostGuard Kobo v0.8.1.1-hotfix"
     echo "Device: $(clean_serial) | $(controller_class)"
     echo "$STATE | $MODE_NOW | License: $LIC"
     echo "Contacts: $C | Incomplete: $I"
@@ -214,7 +219,7 @@ make_report() {
     SERIAL="$(clean_serial)"; [ -n "$SERIAL" ] || SERIAL=KOBO_UNKNOWN
     TMP="$DATA/reports/report_$TS"; LATEST="$REPORT_ROOT/LATEST"; LAST="$REPORT_ROOT/REPORT_LAST.txt"
     rm -rf "$TMP" "$LATEST" 2>/dev/null; mkdir -p "$TMP" "$LATEST" 2>/dev/null
-    write_device_info; license_check >/dev/null 2>&1 || true
+    write_device_info; license_cache >/dev/null 2>&1 || true
     cp "$DEVICE_INFO" "$TMP/" 2>/dev/null || true
     cp "$DATA/profile.txt" "$TMP/observer_profile.txt" 2>/dev/null || true
     cp "$PROFILE_V5" "$TMP/profile_v5.txt" 2>/dev/null || true
@@ -228,25 +233,17 @@ make_report() {
         echo "UNAME=$(uname -a 2>/dev/null)"
         echo "UPTIME=$(uptime 2>/dev/null)"
         echo "MODE=$(cat "$MODEFILE" 2>/dev/null)"
-        echo "SAFE_MODE=$([ -f "$SAFE" ] && echo 1 || echo 0)"
-        echo "TOUCH=$(find_touch)"
-        echo "TOUCH_NAME=$(touch_name)"
-        echo "CONTROLLER_CLASS=$(controller_class)"
-        profile_sync
-        echo "PROFILE_STATE=$(v5_value STATE)"
-        echo "CONTROLLER_FINGERPRINT=$(v5_value CONTROLLER_FINGERPRINT)"
-        echo "ARCH=$(arch_name)"
-        echo "INPUTS:"
-        for P in /sys/class/input/event*; do [ -e "$P" ] && echo "$(basename "$P"): $(cat "$P/device/name" 2>/dev/null)"; done
+        echo "PROFILE_STATE=$(profile_state)"
     } > "$TMP/SYSTEM.txt"
     cp -R "$TMP"/. "$LATEST"/ 2>/dev/null || true
-    OUT=""; ARCHIVE_ERROR=""
-    if command -v tar >/dev/null 2>&1; then CAND="$REPORT_ROOT/DCPRO_GhostGuard_KoboNative_${SERIAL}_${TS}.tar.gz"; if tar -czf "$CAND" -C "$TMP" . 2>"$TMP/tar_error.txt" && [ -s "$CAND" ]; then OUT="$CAND"; else rm -f "$CAND" 2>/dev/null; CAND="$REPORT_ROOT/DCPRO_GhostGuard_KoboNative_${SERIAL}_${TS}.tar"; if tar -cf "$CAND" -C "$TMP" . 2>>"$TMP/tar_error.txt" && [ -s "$CAND" ]; then OUT="$CAND"; fi; fi; fi
-    if [ -z "$OUT" ] && command -v busybox >/dev/null 2>&1; then CAND="$REPORT_ROOT/DCPRO_GhostGuard_KoboNative_${SERIAL}_${TS}.tar"; if busybox tar -cf "$CAND" -C "$TMP" . 2>>"$TMP/tar_error.txt" && [ -s "$CAND" ]; then OUT="$CAND"; fi; fi
-    if [ -f "$TMP/tar_error.txt" ]; then cp "$TMP/tar_error.txt" "$LATEST/" 2>/dev/null || true; ARCHIVE_ERROR="$(tail -n 3 "$TMP/tar_error.txt" 2>/dev/null)"; fi
-    { echo "DCPRO GhostGuard Kobo Report"; echo "TIME=$TS"; echo "DEVICE_ID=$SERIAL"; echo "LATEST_FOLDER=$LATEST"; if [ -n "$OUT" ]; then echo "ARCHIVE=$OUT"; echo "RESULT=OK"; else echo "ARCHIVE=NONE"; echo "RESULT=LATEST_FOLDER_ONLY"; [ -n "$ARCHIVE_ERROR" ] && echo "ARCHIVE_ERROR=$ARCHIVE_ERROR"; fi; } > "$LAST"
-    sync 2>/dev/null || true
-    if [ -n "$OUT" ]; then echo "Report OK"; echo "$OUT"; echo "Backup folder: $LATEST"; rm -rf "$TMP" 2>/dev/null; return 0; fi
+    ARCHIVE="$REPORT_ROOT/GhostGuard_Kobo_${SERIAL}_${TS}.tar.gz"
+    if tar -czf "$ARCHIVE" -C "$TMP" . 2>/dev/null; then
+        echo "Report đã tạo:"; echo "$ARCHIVE"; echo "$ARCHIVE" > "$LAST"; return 0
+    fi
+    ARCHIVE="$REPORT_ROOT/GhostGuard_Kobo_${SERIAL}_${TS}.tar"
+    if tar -cf "$ARCHIVE" -C "$TMP" . 2>/dev/null; then
+        echo "Report đã tạo:"; echo "$ARCHIVE"; echo "$ARCHIVE" > "$LAST"; return 0
+    fi
     echo "Archive không tạo được, nhưng dữ liệu đã lưu an toàn tại:"; echo "$LATEST"; echo "Chi tiết: $LAST"; return 0
 }
 
@@ -261,7 +258,7 @@ approve_profile() {
     echo "Đã duyệt Profile V5. Bắt đầu Probation ở SHADOW; Protect vẫn OFF."
 }
 
-reset_profile() { stop_engine >/dev/null 2>&1 || true; [ -x "$PROFILE_MGR" ] || { echo "Thiếu profile_manager.sh"; return 5; }; "$PROFILE_MGR" reset; echo "Hãy chạy GG · Learn để học lại profile."; }
+reset_profile() { stop_engine >/dev/null 2>&1 || true; [ -x "$PROFILE_MGR" ] || { echo "Thiếu profile_manager.sh"; return 5; }; "$PROFILE_MGR" reset; echo "Hãy chạy GhostGuard - Learn để học lại profile."; }
 
 case "${1:-status}" in
     start|learn) start_engine LEARN ;;
@@ -277,6 +274,8 @@ case "${1:-status}" in
     safe-on) stop_engine >/dev/null 2>&1; echo 1 > "$SAFE"; echo "SAFE_MODE: ON" ;;
     safe-off) rm -f "$SAFE"; echo "SAFE_MODE: OFF" ;;
     device-id) write_device_info; cat "$DEVICE_INFO" ;;
-    license) write_device_info; license_check; cat "$LICENSE_STATUS"; exit $? ;;
-    *) echo "Usage: $0 {learn|shadow|stop|status|status-full|report|approve|profile-status|profile-reset|fingerprint|safe-on|safe-off|device-id|license}"; exit 1 ;;
+    license) write_device_info; license_check; RC=$?; cat "$LICENSE_STATUS"; exit $RC ;;
+    license-sync) write_device_info; license_sync; RC=$?; cat "$LICENSE_STATUS"; exit $RC ;;
+    license-cache) write_device_info; license_cache; RC=$?; cat "$LICENSE_STATUS"; exit $RC ;;
+    *) echo "Usage: $0 {learn|shadow|stop|status|status-full|report|approve|profile-status|profile-reset|fingerprint|safe-on|safe-off|device-id|license|license-sync|license-cache}"; exit 1 ;;
 esac
