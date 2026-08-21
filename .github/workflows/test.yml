@@ -22,10 +22,15 @@ jobs:
         run: make license-verifiers
       - name: Package smoke build
         run: |
+          set -eux
           make package koboroot
-          test -s dist/GhostGuard-Kobo-v0.8.1-profile-v5.zip
-          test -s dist/GhostGuard-Kobo-v0.8.1-profile-v5-KoboRoot.tgz
-          unzip -t dist/GhostGuard-Kobo-v0.8.1-profile-v5.zip >/dev/null
-          tar -tzf dist/GhostGuard-Kobo-v0.8.1-profile-v5-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/ghostguard.sh$'
-          tar -tzf dist/GhostGuard-Kobo-v0.8.1-profile-v5-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/nm/ghostguard$'
-          ! tar -tzf dist/GhostGuard-Kobo-v0.8.1-profile-v5-KoboRoot.tgz | grep -Eq 'profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state'
+          VERSION="$(awk '/^VERSION :=/{print $3; exit}' Makefile)"
+          ZIP="dist/GhostGuard-Kobo-v${VERSION}.zip"
+          TGZ="dist/GhostGuard-Kobo-v${VERSION}-KoboRoot.tgz"
+          test -s "$ZIP"
+          test -s "$TGZ"
+          unzip -t "$ZIP" >/dev/null
+          tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/ghostguard.sh$'
+          tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/nm_quick.sh$'
+          tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/nm/ghostguard$'
+          ! tar -tzf "$TGZ" | grep -Eq 'profile_v5\.txt|online_licenses\.(json|sig)|online_license_sync_state'
