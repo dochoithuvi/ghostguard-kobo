@@ -1,0 +1,9 @@
+DCPRO GhostGuard Kobo
+Version: 0.8.0-foundation
+Profile target: V5
+Observer engine: v0.7.3-compatible shadow binary
+License: V4 Ed25519 / serial-bound
+Protect: disabled
+Input grab: never
+uinput: disabled
+Fail-open: enabled

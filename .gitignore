@@ -1,0 +1,24 @@
+# Customer/runtime secrets
+license.key
+**/license.key
+**/private_key.txt
+**/*private*.pem
+**/*private*.key
+
+# Runtime/customer data
+package/.adds/ghostguard/data/*
+!package/.adds/ghostguard/data/.keep
+package/.adds/ghostguard/runtime/*
+!package/.adds/ghostguard/runtime/.keep
+*.csv
+GhostGuard_Reports/
+
+# Build output
+dist/*
+!dist/.keep
+*.o
+*.out
+
+# Generated verifier/admin binaries (build locally or publish as release assets)
+package/.adds/ghostguard/bin/gg-license-verify-*
+.build/

@@ -1,0 +1,12 @@
+DCPRO GhostGuard Native Kobo v0.7.3
+CONTROLLER-ADAPTIVE SHADOW ONLY.
+
+Reference observer binaries only.
+EVIOCGRAB=OFF
+uinput=OFF
+PROTECT_ACTIVE=0
+INPUT_GRAB=NEVER
+FAIL_OPEN=1
+
+The obsolete shared-secret license verifier is intentionally not included in
+this public reference directory.
