@@ -1,7 +1,7 @@
 DCPRO GhostGuard Kobo
-Version: 0.8.4.1
+Version: 0.8.5
 Profile lifecycle: V5 live-readiness
-Native engine: Adaptive Protect Beta + Safety Hotfix
+Native engine: Adaptive Protect Beta + Ghost Capture
 Controller fingerprint: enabled
 Auto Start: Learn -> auto-activate Ready Profile -> Shadow Probation -> Protect
 Auto Learn -> Ready: enabled (live contacts.csv authoritative)
