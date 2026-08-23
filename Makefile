@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.3.4
+VERSION := 0.8.4
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 CLANG ?= clang
@@ -28,6 +28,9 @@ test:
 	grep -q 'SHA_MISMATCH' scripts/update.sh
 	grep -q 'check-if-stale' scripts/nm_quick.sh
 	grep -q 'Update: AVAILABLE' scripts/nm_quick.sh
+	grep -q 'Blocked:.*Classic.*Burst' scripts/nm_quick.sh
+	grep -q 'QUARANTINE_MS=25' config/defaults.conf
+	grep -q 'BURST_QUARANTINE_MS=80' config/defaults.conf
 	grep -q 'PROBATION_PASSED) MODE=PROTECT' scripts/ghostguard.sh
 	grep -q 'PROTECT_ARMED' scripts/supervisor.sh
 	grep -q 'DCPRO GhostGuard Virtual Touch' scripts/supervisor.sh
@@ -45,6 +48,10 @@ test:
 	grep -q 'FAMILY_TIMING' src/ghostguardd.c
 	python3 tools/prepare_native.py
 	grep -q 'suppress_tail' .build/ghostguardd.c
+	grep -q 'burst_guard' .build/ghostguardd.c
+	grep -q 'reason=BURST' .build/ghostguardd.c
+	grep -q '25000u' .build/ghostguardd.c
+	grep -q '80000u' .build/ghostguardd.c
 	grep -q 'observer_profile.ggdata' .build/ghostguardd.c
 	grep -q 'RUNTIME_FAULT.ggstate' .build/ghostguardd.c
 	! grep -q '/data/profile.txt' .build/ghostguardd.c
@@ -54,13 +61,15 @@ test:
 	sh tests/test_profile_lifecycle.sh
 	sh tests/test_status_library_cleanup.sh
 	sh tests/test_protect_beta.sh
+	sh tests/test_adaptive_protect.sh
 	go test ./cmd/gg-license-verify
 	$(MAKE) sync-package
 	sh -n package/.adds/ghostguard/*.sh
 	grep -q 'observer_profile.ggdata' package/.adds/ghostguard/ghostguard.sh
 	grep -q 'profile_v5.ggstate' package/.adds/ghostguard/profile_manager.sh
 	grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'GhostGuard Kobo 0.8.3.4 Protect Beta' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'GhostGuard Kobo 0.8.4 Adaptive Protect Beta' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'Blocked:.*Classic.*Burst' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'Start (tự kích hoạt Profile)' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'manifest.online.json' package/.adds/ghostguard/update.sh
 	grep -q 'KoboRoot.tgz.part' package/.adds/ghostguard/update.sh

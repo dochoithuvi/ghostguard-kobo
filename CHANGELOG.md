@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.4 - 2026-08-23
+
+- Added Adaptive Protect for real-world touch chaos which can escape the original ultra-short 10 ms gate.
+- Increased normal quarantine to 25 ms while keeping the existing high-confidence classic `WOULD_DROP` path.
+- Added Burst Guard: three rapid anomalous short contacts inside 450 ms arm a temporary stronger guard.
+- While Burst Guard is active, the next contacts may be held for up to 80 ms so suspicious contacts can be suppressed before Nickel receives them.
+- Burst anomaly timing is derived from the learned average human touch duration, with conservative lower/upper caps.
+- Burst Guard decays after 1 second without a continuing anomalous sequence.
+- `SYN_DROPPED`, uinput faults and other Protect failures still clear adaptive state and fail open.
+- Block telemetry now distinguishes Classic vs Burst suppression in Status and marks burst entries in `blocked.gglog`.
+- Four-item customer menu and Online Update flow remain unchanged.
+
 ## 0.8.3.3 - 2026-08-23
 
 - Replaced the customer-facing `GhostGuard - Report` menu with `GhostGuard - Update`; report generation remains available in the backend for diagnostics.
