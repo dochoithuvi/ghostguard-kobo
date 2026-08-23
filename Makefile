@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.3.2
+VERSION := 0.8.3.3
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 CLANG ?= clang
@@ -16,7 +16,16 @@ test:
 	grep -q 'GhostGuard - Start' nickelmenu/ghostguard
 	grep -q 'GhostGuard - Activate Profile' nickelmenu/ghostguard
 	grep -q 'GhostGuard - Stop' nickelmenu/ghostguard
-	grep -q 'GhostGuard - Report' nickelmenu/ghostguard
+	grep -q 'GhostGuard - Update' nickelmenu/ghostguard
+	! grep -q 'GhostGuard - Report' nickelmenu/ghostguard
+	grep -q 'update.sh install' nickelmenu/ghostguard
+	grep -q 'reboot-if-staged' nickelmenu/ghostguard
+	grep -q 'manifest.online.json' scripts/update.sh
+	grep -q 'koboroot_sha256' scripts/update.sh
+	grep -q 'KoboRoot.tgz.part' scripts/update.sh
+	grep -q 'SHA_MISMATCH' scripts/update.sh
+	grep -q 'check-if-stale' scripts/nm_quick.sh
+	grep -q 'Update: AVAILABLE' scripts/nm_quick.sh
 	grep -q 'PROBATION_PASSED) MODE=PROTECT' scripts/ghostguard.sh
 	grep -q 'PROTECT_ARMED' scripts/supervisor.sh
 	grep -q 'DCPRO GhostGuard Virtual Touch' scripts/supervisor.sh
@@ -49,6 +58,8 @@ test:
 	grep -q 'observer_profile.ggdata' package/.adds/ghostguard/ghostguard.sh
 	grep -q 'profile_v5.ggstate' package/.adds/ghostguard/profile_manager.sh
 	grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'manifest.online.json' package/.adds/ghostguard/update.sh
+	grep -q 'KoboRoot.tgz.part' package/.adds/ghostguard/update.sh
 	! grep -q '\.txt' package/.adds/ghostguard/ghostguard.sh
 	! grep -q '\.txt' package/.adds/ghostguard/profile_manager.sh
 
@@ -68,6 +79,7 @@ sync-package:
 	cp scripts/profile_manager.sh package/.adds/ghostguard/profile_manager.sh
 	cp scripts/nm_quick.sh package/.adds/ghostguard/nm_quick.sh
 	cp scripts/ui_action.sh package/.adds/ghostguard/ui_action.sh
+	cp scripts/update.sh package/.adds/ghostguard/update.sh
 	cp config/defaults.conf package/.adds/ghostguard/defaults.conf
 	cp nickelmenu/ghostguard package/.adds/nm/ghostguard
 	python3 tools/prepare_runtime.py
