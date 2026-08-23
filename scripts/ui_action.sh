@@ -1,13 +1,13 @@
 #!/bin/sh
-# GhostGuard Kobo v0.8.3.4 customer action wrapper.
-# Keeps the customer UX minimal: Start auto-activates a ready Profile, Update runs
-# in the background, and legacy/document-like runtime files are removed.
+# GhostGuard Kobo v0.8.4.1 customer action wrapper.
+# Stop is emergency-first and must never block on cleanup/profile sync.
 set -u
 
 BASE=/mnt/onboard/.adds/ghostguard
 DATA="$BASE/data"
 RUN="$BASE/runtime"
 CORE="$BASE/ghostguard.sh"
+EMERGENCY="$BASE/emergency_stop.sh"
 PROFILE_MGR="$BASE/profile_manager.sh"
 UPDATER="$BASE/update.sh"
 REPORT_PUBLIC=/mnt/onboard/GhostGuard_Reports
@@ -54,9 +54,6 @@ cleanup_loose_reports() {
 
     [ -d "$DATA/reports" ] && rm -rf "$DATA/reports"/* 2>/dev/null || true
     find "$DATA" -type f -name '*.txt' -exec rm -f {} \; 2>/dev/null || true
-
-    # Remove obsolete package/docs left by older Kobo builds. These are not
-    # required at runtime and could be indexed by Nickel as library content.
     rm -f "$BASE/SAFETY.txt" "$BASE/SAFETY.ggdata" "$BASE/STATUS_LIBRARY_NOTES" 2>/dev/null || true
     find "$BASE" -maxdepth 1 -type f -name '*.txt' -exec rm -f {} \; 2>/dev/null || true
 }
@@ -74,8 +71,32 @@ auto_activate_if_ready() {
     return 0
 }
 
+emergency_stop() {
+    if [ -x "$EMERGENCY" ]; then
+        "$EMERGENCY" >/dev/null 2>&1 || true
+    else
+        rm -f "$RUN/RUN" "$RUN/PROTECT_ARMED" 2>/dev/null || true
+        [ -f "$RUN/daemon.pid" ] && kill -TERM "$(cat "$RUN/daemon.pid" 2>/dev/null)" 2>/dev/null || true
+        [ -f "$RUN/supervisor.pid" ] && kill -TERM "$(cat "$RUN/supervisor.pid" 2>/dev/null)" 2>/dev/null || true
+    fi
+    (
+        sleep 1
+        [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" session-end >/dev/null 2>&1 || true
+        [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" sync >/dev/null 2>&1 || true
+        cleanup_all
+    ) >/dev/null 2>&1 &
+    return 0
+}
+
 ACTION="${1:-cleanup}"
 shift 2>/dev/null || true
+
+# Stop must run before ANY migration, find, report cleanup or Profile work.
+if [ "$ACTION" = stop ]; then
+    emergency_stop
+    exit 0
+fi
+
 cleanup_all
 
 case "$ACTION" in
@@ -97,9 +118,7 @@ case "$ACTION" in
             "$UPDATER" reboot-if-staged >/dev/null 2>&1 || true
         fi
         ;;
-    approve|stop|report)
-        # Kept backend-compatible for diagnostics; these actions are not all
-        # exposed in the customer NickelMenu.
+    approve|report)
         "$CORE" "$ACTION" "$@"
         RC=$?
         ;;
