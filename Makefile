@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.4
+VERSION := 0.8.4.1
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 CLANG ?= clang
@@ -19,8 +19,11 @@ test:
 	! grep -q 'GhostGuard - Activate Profile' nickelmenu/ghostguard
 	! grep -q 'GhostGuard - Report' nickelmenu/ghostguard
 	! grep -q '90000' nickelmenu/ghostguard
+	grep -q 'GhostGuard - Stop : cmd_spawn' nickelmenu/ghostguard
 	grep -q 'ui_action.sh update' nickelmenu/ghostguard
 	grep -q 'auto_activate_if_ready' scripts/ui_action.sh
+	grep -q 'emergency_stop' scripts/ui_action.sh
+	grep -q 'PROTECT_ACTIVE=0' scripts/emergency_stop.sh
 	grep -q 'PENDING_APPROVAL' scripts/ui_action.sh
 	grep -q 'manifest.online.json' scripts/update.sh
 	grep -q 'koboroot_sha256' scripts/update.sh
@@ -52,6 +55,7 @@ test:
 	grep -q 'reason=BURST' .build/ghostguardd.c
 	grep -q '25000u' .build/ghostguardd.c
 	grep -q '80000u' .build/ghostguardd.c
+	grep -q 'if(!burst_guard||elapsed>80000u)return 0;if(risk<35u)return 0;' .build/ghostguardd.c
 	grep -q 'observer_profile.ggdata' .build/ghostguardd.c
 	grep -q 'RUNTIME_FAULT.ggstate' .build/ghostguardd.c
 	! grep -q '/data/profile.txt' .build/ghostguardd.c
@@ -62,17 +66,19 @@ test:
 	sh tests/test_status_library_cleanup.sh
 	sh tests/test_protect_beta.sh
 	sh tests/test_adaptive_protect.sh
+	sh tests/test_safety_hotfix.sh
 	go test ./cmd/gg-license-verify
 	$(MAKE) sync-package
 	sh -n package/.adds/ghostguard/*.sh
 	grep -q 'observer_profile.ggdata' package/.adds/ghostguard/ghostguard.sh
 	grep -q 'profile_v5.ggstate' package/.adds/ghostguard/profile_manager.sh
 	grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'GhostGuard Kobo 0.8.4 Adaptive Protect Beta' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'GhostGuard Kobo 0.8.4.1 Safety Hotfix' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'Blocked:.*Classic.*Burst' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'Start (tự kích hoạt Profile)' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'manifest.online.json' package/.adds/ghostguard/update.sh
 	grep -q 'KoboRoot.tgz.part' package/.adds/ghostguard/update.sh
+	grep -q 'EMERGENCY_STOP' package/.adds/ghostguard/emergency_stop.sh
 	! grep -q '\.txt' package/.adds/ghostguard/ghostguard.sh
 	! grep -q '\.txt' package/.adds/ghostguard/profile_manager.sh
 	test ! -e package/.adds/ghostguard/SAFETY.ggdata
@@ -94,6 +100,7 @@ sync-package:
 	cp scripts/profile_manager.sh package/.adds/ghostguard/profile_manager.sh
 	cp scripts/nm_quick.sh package/.adds/ghostguard/nm_quick.sh
 	cp scripts/ui_action.sh package/.adds/ghostguard/ui_action.sh
+	cp scripts/emergency_stop.sh package/.adds/ghostguard/emergency_stop.sh
 	cp scripts/update.sh package/.adds/ghostguard/update.sh
 	cp config/defaults.conf package/.adds/ghostguard/defaults.conf
 	cp nickelmenu/ghostguard package/.adds/nm/ghostguard
