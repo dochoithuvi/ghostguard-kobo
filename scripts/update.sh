@@ -1,7 +1,7 @@
 #!/bin/sh
 # DCPRO GhostGuard Kobo online updater - v0.8.3.3
-# Fetches the signed-release manifest metadata, verifies KoboRoot SHA256, stages
-# it in .kobo, then optionally reboots. Existing GhostGuard data is untouched.
+# Fetches the release manifest metadata, verifies KoboRoot SHA256, stages it in
+# .kobo, then optionally reboots. Existing GhostGuard data is untouched.
 set -u
 
 BASE=/mnt/onboard/.adds/ghostguard
@@ -57,9 +57,13 @@ run_download() {
     if command -v wget >/dev/null 2>&1; then
         wget -q -T 20 -t 2 -O "$OUT" "$URL" 2>/dev/null && [ -s "$OUT" ] && return 0
         rm -f "$OUT" 2>/dev/null || true
+        wget -q -O "$OUT" "$URL" 2>/dev/null && [ -s "$OUT" ] && return 0
+        rm -f "$OUT" 2>/dev/null || true
     fi
     if command -v busybox >/dev/null 2>&1; then
         busybox wget -q -T 20 -t 2 -O "$OUT" "$URL" 2>/dev/null && [ -s "$OUT" ] && return 0
+        rm -f "$OUT" 2>/dev/null || true
+        busybox wget -q -O "$OUT" "$URL" 2>/dev/null && [ -s "$OUT" ] && return 0
         rm -f "$OUT" 2>/dev/null || true
     fi
     return 1
@@ -126,7 +130,8 @@ check_update() {
 
 check_if_stale() {
     NOW="$(now_epoch)"; LAST="$(kv "$STATE" CHECK_EPOCH)"
-    case "$NOW:$LAST" in *[!0-9:]*|:*) check_update >/dev/null 2>&1 || true; return 0;; esac
+    case "$NOW" in ''|*[!0-9]*) check_update >/dev/null 2>&1 || true; return 0;; esac
+    case "$LAST" in ''|*[!0-9]*) check_update >/dev/null 2>&1 || true; return 0;; esac
     AGE=$((NOW - LAST))
     [ "$AGE" -ge 0 ] 2>/dev/null && [ "$AGE" -lt "$CHECK_TTL" ] 2>/dev/null && return 0
     check_update >/dev/null 2>&1 || true
