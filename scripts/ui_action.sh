@@ -1,13 +1,15 @@
 #!/bin/sh
-# GhostGuard Kobo v0.8.3.1 customer action wrapper.
-# Runtime state uses private extensions permanently. Legacy .txt state is only
-# consumed here during migration and is never recreated by the packaged runtime.
+# GhostGuard Kobo v0.8.3.4 customer action wrapper.
+# Keeps the customer UX minimal: Start auto-activates a ready Profile, Update runs
+# in the background, and legacy/document-like runtime files are removed.
 set -u
 
 BASE=/mnt/onboard/.adds/ghostguard
 DATA="$BASE/data"
 RUN="$BASE/runtime"
 CORE="$BASE/ghostguard.sh"
+PROFILE_MGR="$BASE/profile_manager.sh"
+UPDATER="$BASE/update.sh"
 REPORT_PUBLIC=/mnt/onboard/GhostGuard_Reports
 REPORT_HIDDEN=/mnt/onboard/.kobo/GhostGuard_Reports
 
@@ -22,8 +24,6 @@ move_legacy() {
 }
 
 migrate_legacy_state() {
-    # v0.8.2.x / v0.8.3 temporarily exposed these as text documents while the
-    # engine was running. From v0.8.3.1 onward the private names are canonical.
     move_legacy "$DATA/profile_v5.txt" "$DATA/profile_v5.ggstate"
     move_legacy "$DATA/profile.txt" "$DATA/observer_profile.ggdata"
     move_legacy "$DATA/LICENSE_STATUS.txt" "$DATA/LICENSE_STATUS.ggstate"
@@ -34,8 +34,6 @@ migrate_legacy_state() {
 }
 
 cleanup_loose_reports() {
-    # Keep only compressed report archives. Loose SYSTEM/status/profile text from
-    # older builds is what Nickel was importing into My Books.
     if [ -d "$REPORT_PUBLIC" ]; then
         for F in "$REPORT_PUBLIC"/*.tar.gz "$REPORT_PUBLIC"/*.tar; do
             [ -f "$F" ] || continue
@@ -54,12 +52,13 @@ cleanup_loose_reports() {
         done
     fi
 
-    # Internal temporary report trees are never needed after the archive exists.
     [ -d "$DATA/reports" ] && rm -rf "$DATA/reports"/* 2>/dev/null || true
-
-    # Remove stale document-like diagnostics left by pre-0.8.3.1 builds after
-    # their canonical state has already been migrated above.
     find "$DATA" -type f -name '*.txt' -exec rm -f {} \; 2>/dev/null || true
+
+    # Remove obsolete package/docs left by older Kobo builds. These are not
+    # required at runtime and could be indexed by Nickel as library content.
+    rm -f "$BASE/SAFETY.txt" "$BASE/SAFETY.ggdata" "$BASE/STATUS_LIBRARY_NOTES" 2>/dev/null || true
+    find "$BASE" -maxdepth 1 -type f -name '*.txt' -exec rm -f {} \; 2>/dev/null || true
 }
 
 cleanup_all() {
@@ -67,12 +66,40 @@ cleanup_all() {
     cleanup_loose_reports
 }
 
+auto_activate_if_ready() {
+    [ -x "$PROFILE_MGR" ] || return 0
+    STATE="$($PROFILE_MGR state 2>/dev/null || echo CALIBRATION)"
+    [ "$STATE" = PENDING_APPROVAL ] || return 0
+    "$CORE" approve >/dev/null 2>&1 || return $?
+    return 0
+}
+
 ACTION="${1:-cleanup}"
 shift 2>/dev/null || true
 cleanup_all
 
 case "$ACTION" in
-    start|approve|stop|report)
+    start)
+        auto_activate_if_ready || {
+            RC=$?
+            echo "Không thể tự kích hoạt Profile."
+            cleanup_all
+            exit "$RC"
+        }
+        "$CORE" start "$@"
+        RC=$?
+        ;;
+    update)
+        [ -x "$UPDATER" ] || { echo "Online updater chưa sẵn sàng."; RC=8; cleanup_all; exit "$RC"; }
+        "$UPDATER" install
+        RC=$?
+        if [ "$RC" -eq 0 ]; then
+            "$UPDATER" reboot-if-staged >/dev/null 2>&1 || true
+        fi
+        ;;
+    approve|stop|report)
+        # Kept backend-compatible for diagnostics; these actions are not all
+        # exposed in the customer NickelMenu.
         "$CORE" "$ACTION" "$@"
         RC=$?
         ;;
@@ -86,7 +113,5 @@ case "$ACTION" in
         ;;
 esac
 
-# Core v0.8.3.1 writes only private extensions, but run cleanup once more after
-# an action so legacy report trees from an interrupted older build are removed.
 cleanup_all
 exit "$RC"
