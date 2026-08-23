@@ -1,5 +1,5 @@
-# DCPRO GhostGuard Kobo v0.8.3.3 — Five-item user menu
-# Report remains available in the backend. Customer UX exposes Online Update.
+# DCPRO GhostGuard Kobo v0.8.3.4 — Four-item user menu
+# Profile activation is automatic from Start. Report remains backend-only.
 
 menu_item : main : GhostGuard - Status : cmd_output : 5000 : /mnt/onboard/.adds/ghostguard/nm_quick.sh status
   chain_success : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/ui_action.sh cleanup >/dev/null 2>&1
@@ -9,14 +9,10 @@ menu_item : main : GhostGuard - Start : nickel_wifi : autoconnect_silent
   chain_always : cmd_spawn : quiet:sleep 2; /mnt/onboard/.adds/ghostguard/ui_action.sh start > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.ggstate 2>&1
   chain_always : dbg_toast : GhostGuard đang khởi động...
 
-menu_item : main : GhostGuard - Activate Profile : nickel_wifi : autoconnect_silent
-  chain_always : cmd_spawn : quiet:sleep 2; /mnt/onboard/.adds/ghostguard/ui_action.sh approve > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.ggstate 2>&1
-  chain_always : dbg_toast : Đang kích hoạt Profile GhostGuard...
-
 menu_item : main : GhostGuard - Stop : cmd_output : 5000 : quiet:/mnt/onboard/.adds/ghostguard/ui_action.sh stop > /mnt/onboard/.adds/ghostguard/data/LAST_ACTION.ggstate 2>&1
   chain_success : nickel_misc : rescan_books
   chain_success : dbg_toast : GhostGuard đã dừng và dọn thư viện.
 
 menu_item : main : GhostGuard - Update : nickel_wifi : autoconnect_silent
-  chain_success : cmd_output : 90000 : /mnt/onboard/.adds/ghostguard/update.sh install
-  chain_success : cmd_spawn : quiet:/mnt/onboard/.adds/ghostguard/update.sh reboot-if-staged >/dev/null 2>&1
+  chain_always : cmd_spawn : quiet:sleep 2; /mnt/onboard/.adds/ghostguard/ui_action.sh update > /mnt/onboard/.adds/ghostguard/data/LAST_UPDATE.ggstate 2>&1
+  chain_always : dbg_toast : GhostGuard đang kiểm tra cập nhật...
