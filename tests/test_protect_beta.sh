@@ -10,6 +10,7 @@ grep -q 'UI_DEV_CREATE' "$ROOT/src/ghostguardd.c"
 grep -q 'SYN_DROPPED_FAIL_OPEN' "$ROOT/src/ghostguardd.c"
 python3 "$ROOT/tools/prepare_native.py"
 grep -q 'suppress_tail=1' "$ROOT/.build/ghostguardd.c"
-grep -q 'elapsed<=10000u' "$ROOT/.build/ghostguardd.c"
+grep -q 'protect_hold_us' "$ROOT/.build/ghostguardd.c"
+grep -q '25000u' "$ROOT/.build/ghostguardd.c"
 grep -q 'FAMILY_TIMING' "$ROOT/.build/ghostguardd.c"
-echo 'protect beta static gates: OK'
+echo 'protect beta/adaptive static gates: OK'
