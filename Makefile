@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.3.1
+VERSION := 0.8.3.2
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 CLANG ?= clang
@@ -20,6 +20,12 @@ test:
 	grep -q 'PROBATION_PASSED) MODE=PROTECT' scripts/ghostguard.sh
 	grep -q 'PROTECT_ARMED' scripts/supervisor.sh
 	grep -q 'DCPRO GhostGuard Virtual Touch' scripts/supervisor.sh
+	grep -q 'udevadm trigger' scripts/supervisor.sh
+	grep -q 'NICKEL_REBINDING' scripts/supervisor.sh
+	grep -q '/etc/init.d/z-nickel-hardware-status' scripts/supervisor.sh
+	grep -q 'nickel_has_fd.*arm_now' scripts/supervisor.sh
+	grep -q 'nickel_rebind_once' scripts/ghostguard.sh
+	grep -q 'VIRTUAL_EVENT_NOT_FOUND' scripts/nm_quick.sh
 	grep -q 'BASELINE_STABLE_LIVE' scripts/profile_manager.sh
 	grep -q 'EVIOCGRAB' src/ghostguardd.c
 	grep -q 'UI_DEV_CREATE' src/ghostguardd.c
