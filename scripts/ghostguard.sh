@@ -1,11 +1,11 @@
 #!/bin/sh
-# DCPRO GhostGuard Kobo v0.8.3 Protect Beta
+# DCPRO GhostGuard Kobo v0.8.3.2 Protect Beta
 # Auto Learn -> approval -> probation -> fail-open Protect.
 set -u
 BASE=/mnt/onboard/.adds/ghostguard
 BIN_DIR="$BASE/bin"; DATA="$BASE/data"; RUN="$BASE/runtime"
 PIDFILE="$RUN/supervisor.pid"; CHILDPID="$RUN/daemon.pid"; RUNFLAG="$RUN/RUN"
-MODEFILE="$RUN/mode"; INPUTFILE="$RUN/input_device"; ARMFILE="$RUN/PROTECT_ARMED"
+MODEFILE="$RUN/mode"; INPUTFILE="$RUN/input_device"; ARMFILE="$RUN/PROTECT_ARMED"; REBINDFILE="$RUN/nickel_rebind_once"
 SAFE="$BASE/SAFE_MODE"; LICENSE_STATE="$DATA/license_last_date"
 LICENSE_STATUS="$DATA/LICENSE_STATUS.txt"; DEVICE_INFO="$DATA/KOBO_DEVICE_ID.txt"
 PROTECT_STATUS="$DATA/PROTECT_STATUS.ggstate"; LOG="$DATA/native.log"
@@ -58,13 +58,24 @@ start_engine(){
   if [ "$MODE" = PROTECT ]; then
     EL="$(v5_value PROTECT_ELIGIBLE)"; [ "$PSTATE" = PROBATION_PASSED ] && [ "$EL" = 1 ] || { echo "Protect chưa đủ điều kiện: state=$PSTATE eligible=${EL:-0}"; MODE=SHADOW; }
   fi
-  if is_running; then CUR="$(cat "$MODEFILE" 2>/dev/null)"; [ "$CUR" = "$MODE" ] && { echo "GhostGuard đang chạy: $MODE"; return 0; }; stop_engine >/dev/null 2>&1; sleep 1; fi
+  if is_running; then
+    CUR="$(cat "$MODEFILE" 2>/dev/null)"
+    if [ "$CUR" = "$MODE" ]; then
+      if [ "$MODE" = PROTECT ] && [ -r "$PROTECT_STATUS" ] && grep -Eq '^STATE=(NICKEL_VIRTUAL_NOT_OPEN|VIRTUAL_EVENT_NOT_FOUND)$' "$PROTECT_STATUS" 2>/dev/null; then
+        stop_engine >/dev/null 2>&1; sleep 1
+      else
+        echo "GhostGuard đang chạy: $MODE"; return 0
+      fi
+    else
+      stop_engine >/dev/null 2>&1; sleep 1
+    fi
+  fi
   BIN="$(binary_path)"; [ -n "$BIN" ] && [ -x "$BIN" ] || { echo "Không có native binary phù hợp."; return 5; }
-  rm -f "$ARMFILE"; [ "$MODE" != PROTECT ] && rm -f "$PROTECT_STATUS" 2>/dev/null || true
+  rm -f "$ARMFILE" "$REBINDFILE"; [ "$MODE" != PROTECT ] && rm -f "$PROTECT_STATUS" 2>/dev/null || true
   echo "$MODE" > "$MODEFILE"; echo 1 > "$RUNFLAG"; rm -f "$DATA/RUNTIME_FAULT.txt"
   if command -v setsid >/dev/null 2>&1; then setsid "$BASE/supervisor.sh" >/dev/null 2>&1 & elif command -v nohup >/dev/null 2>&1; then nohup "$BASE/supervisor.sh" >/dev/null 2>&1 & else "$BASE/supervisor.sh" >/dev/null 2>&1 & fi
   SP=$!; echo "$SP" > "$PIDFILE"; sleep 1
-  if is_running; then [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" session-start >/dev/null 2>&1 || true; echo "GhostGuard đã chạy: $MODE"; [ "$MODE" = PROTECT ] && echo "Protect đang chuẩn bị uinput; chỉ grab sau khi Nickel mở virtual touch."; return 0; fi
+  if is_running; then [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" session-start >/dev/null 2>&1 || true; echo "GhostGuard đã chạy: $MODE"; [ "$MODE" = PROTECT ] && echo "Protect đang chuẩn bị virtual touch; có thể rebind Nickel một lần trước khi arm."; return 0; fi
   echo "Không khởi động được supervisor."; return 6
 }
 
