@@ -11,22 +11,16 @@ is_running(){ [ -f "$PIDFILE" ]||return 1; P="$(cat "$PIDFILE" 2>/dev/null)";[ -
 pfile(){ [ -s "$PV5" ]&&echo "$PV5"||echo "$PV5S"; }; lfile(){ [ -s "$LIC" ]&&echo "$LIC"||echo "$LICS"; }
 kv(){ F="$1";K="$2";[ -r "$F" ]&&sed -n "s/^${K}=//p" "$F" 2>/dev/null|head -n1; }; v5(){ kv "$(pfile)" "$1"; }; cfg(){ V="$(kv "$DEFAULTS" "$1")";[ -n "$V" ]&&echo "$V"||echo "$2"; }
 num(){ case "${1:-}" in ''|*[!0-9]*) echo 0;;*)echo "$1";;esac; }; pct(){ N="$(num "$1")";D="$(num "$2")";[ "$D" -gt 0 ]&&{ X=$((N*100/D));[ "$X" -gt 100 ]&&X=100;echo "$X";}||echo 0; }
-# contacts|baseline|incomplete|watch|suspect|candidate|last_risk|last_class|last_action
 live(){ [ -s "$CSV" ]||{ echo '0|0|0|0|0|0|0|-|-';return;}; awk -F, 'NR==1{next}NF>=13{n++;r=$8+0;c=$11;a=$12;d=$5+0;if(c=="INCOMPLETE")inc++;else{if(c=="WATCH")w++;if(c=="SUSPECT")s++;if(a=="WOULD_DROP")cand++;if($3!=""&&$4!=""&&$3!="-1"&&$4!="-1"&&d>=8000&&r<35)b++}lr=r;lc=c;la=a}END{printf "%d|%d|%d|%d|%d|%d|%d|%s|%s\n",n+0,b+0,inc+0,w+0,s+0,cand+0,lr+0,lc?lc:"-",la?la:"-"}' "$CSV" 2>/dev/null||echo '0|0|0|0|0|0|0|-|-'; }
 license_summary(){ F="$(lfile)";FIRST="$(head -n1 "$F" 2>/dev/null)";case "$FIRST" in OK\|*)echo Active;;DENY\|*)echo "Denied - ${FIRST#DENY|}"|cut -d';' -f1;;*)echo 'Not synced';;esac; }
 friendly(){ case "$1" in CALIBRATION|'')echo 'Đang học';;PENDING_APPROVAL)echo 'Đã đủ dữ liệu - chờ kích hoạt';;PROBATION)echo 'Đang kiểm tra Profile';;PROBATION_PASSED)echo 'Đã sẵn sàng bảo vệ';;*)echo "$1";;esac; }
 protect_state(){ [ -r "$PST" ]&&{ S="$(kv "$PST" STATE)";[ -n "$S" ]&&echo "$S"&&return;};echo OFF; }
-blocked(){ [ -s "$BLOCK" ]&&wc -l < "$BLOCK"|tr -d ' '||echo 0; }
+blocked_total(){ [ -s "$BLOCK" ]&&wc -l < "$BLOCK"|tr -d ' '||echo 0; }
+blocked_burst(){ [ -s "$BLOCK" ]&&awk '/reason=BURST/{n++}END{print n+0}' "$BLOCK" 2>/dev/null||echo 0; }
 update_summary(){
   [ -r "$USTATE" ] || { echo 'Update: checking...'; return; }
   R="$(kv "$USTATE" RESULT)"; L="$(kv "$USTATE" LATEST)"
-  case "$R" in
-    AVAILABLE) echo "Update: AVAILABLE -> ${L:-new version}" ;;
-    CURRENT) echo "Update: Up to date (${L:-current})" ;;
-    STAGED) echo "Update: Staged -> ${L:-new version}" ;;
-    DOWNLOAD_FAILED|SHA_MISMATCH|SHA_TOOL_MISSING|STAGE_FAILED|NETWORK_ERROR) echo "Update: check/download unavailable" ;;
-    *) echo 'Update: checking...' ;;
-  esac
+  case "$R" in AVAILABLE) echo "Update: AVAILABLE -> ${L:-new version}";; CURRENT) echo "Update: Up to date (${L:-current})";; STAGED) echo "Update: Staged -> ${L:-new version}";; DOWNLOAD_FAILED|SHA_MISMATCH|SHA_TOOL_MISSING|STAGE_FAILED|NETWORK_ERROR) echo "Update: check/download unavailable";; *) echo 'Update: checking...';; esac
 }
 show_status(){
   [ -x "$PM" ]&&"$PM" sync >/dev/null 2>&1||true
@@ -39,8 +33,8 @@ show_status(){
   case "$PS" in CALIBRATION|'') echo "Learning: ${P}%";echo "Touches: $C/$NC | Baseline: $B/$NB";echo "Data quality: incomplete ${IP}% (max ${MI}%)";;PENDING_APPROVAL) echo 'Learning: 100% - đủ dữ liệu';echo "Touches: $C/$NC | Baseline: $B/$NB";;PROBATION) echo "Probation: $PC/$PN sessions";;PROBATION_PASSED) echo "Probation: Passed ($PN/$PN)";;esac
   if [ "$W" -gt 0 ]||[ "$SUS" -gt 0 ]||[ "$CAN" -gt 0 ];then echo "Ghost telemetry: Watch $W | Suspect $SUS | Candidate $CAN";fi
   [ "$C" -gt 0 ]&&echo "Last touch: risk $LR | $LC / $LA"
-  PSTAT="$(protect_state)"; BL="$(blocked)"
-  if [ "$ENG" = RUNNING ]&&[ "$MODE" = PROTECT ]&&[ "$PSTAT" = ACTIVE ];then echo "Protect: ON | Blocked: $BL | Quarantine: 10ms";else case "$PSTAT" in UINPUT_UNAVAILABLE|UINPUT_CREATE_FAILED|UINPUT_CONFIG_WRITE_FAILED|EVIOCGRAB_FAILED|NICKEL_VIRTUAL_NOT_OPEN|VIRTUAL_EVENT_NOT_FOUND|SYN_DROPPED_FAIL_OPEN|UINPUT_WRITE_FAILED_FAIL_OPEN|INPUT_READ_FAILED_FAIL_OPEN) echo "Protect: OFF (fail-open) | $PSTAT";;NICKEL_REBINDING)echo 'Protect: PREPARING | rebinding Nickel once';;VIRTUAL_READY_WAITING_FOR_NICKEL)echo 'Protect: PREPARING | waiting Nickel virtual touch';;*) echo 'Protect: OFF';;esac;fi
+  PSTAT="$(protect_state)"; BL="$(num "$(blocked_total)")"; BB="$(num "$(blocked_burst)")"; BC=$((BL-BB));[ "$BC" -lt 0 ]&&BC=0
+  if [ "$ENG" = RUNNING ]&&[ "$MODE" = PROTECT ]&&[ "$PSTAT" = ACTIVE ];then echo "Protect: ON | Blocked: $BL (Classic $BC | Burst $BB)";echo 'Quarantine: 25ms | Burst Guard: up to 80ms';else case "$PSTAT" in UINPUT_UNAVAILABLE|UINPUT_CREATE_FAILED|UINPUT_CONFIG_WRITE_FAILED|EVIOCGRAB_FAILED|NICKEL_VIRTUAL_NOT_OPEN|VIRTUAL_EVENT_NOT_FOUND|SYN_DROPPED_FAIL_OPEN|UINPUT_WRITE_FAILED_FAIL_OPEN|INPUT_READ_FAILED_FAIL_OPEN) echo "Protect: OFF (fail-open) | $PSTAT";;NICKEL_REBINDING)echo 'Protect: PREPARING | rebinding Nickel once';;VIRTUAL_READY_WAITING_FOR_NICKEL)echo 'Protect: PREPARING | waiting Nickel virtual touch';;*) echo 'Protect: OFF';;esac;fi
   echo 'Fail-open: ON'
   case "$PS" in CALIBRATION|'')echo 'Next: tiếp tục dùng máy bình thường.';;PENDING_APPROVAL)echo 'Next: GhostGuard - Activate Profile';;PROBATION)echo 'Next: Start/Stop đủ 2 phiên Probation.';;PROBATION_PASSED) case "$PSTAT" in ACTIVE)echo 'Next: GhostGuard đang bảo vệ.';;NICKEL_REBINDING|VIRTUAL_READY_WAITING_FOR_NICKEL)echo 'Next: chờ Nickel khởi động lại và mở Status.';;NICKEL_VIRTUAL_NOT_OPEN|VIRTUAL_EVENT_NOT_FOUND)echo 'Next: GhostGuard - Start để thử rebind lại.';;*)echo 'Next: GhostGuard - Start để bật Protect.';;esac;;esac
 }
