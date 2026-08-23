@@ -18,8 +18,6 @@ def rewrite(path: Path, fn) -> None:
 
 
 def core_runtime(src: str) -> str:
-    # First remove document-like report/state names, then normalize the few
-    # state files that use .ggstate rather than .ggdata.
     src = src.replace(".txt", ".ggdata")
     src = src.replace("profile_v5.ggdata", "profile_v5.ggstate")
     src = src.replace("LICENSE_STATUS.ggdata", "LICENSE_STATUS.ggstate")
@@ -40,14 +38,15 @@ def profile_runtime(src: str) -> str:
 
 
 def quick_runtime(src: str) -> str:
-    # Status must never block NickelMenu on a Profile V5 recomputation. The
-    # supervisor already syncs periodically; this kick is best-effort/background.
+    # Status must never block NickelMenu on Profile V5 recomputation or update I/O.
     old = '  [ -x "$PM" ]&&"$PM" sync >/dev/null 2>&1||true\n'
     new = '  if [ -x "$PM" ]; then "$PM" sync >/dev/null 2>&1 & fi\n'
     if old not in src:
         raise SystemExit("nm_quick synchronous sync anchor missing")
     src = src.replace(old, new, 1)
-    src = src.replace("GhostGuard Kobo 0.8.3 Protect Beta", "GhostGuard Kobo 0.8.3.1 Protect Beta")
+    src = src.replace("GhostGuard Kobo 0.8.3.3 Protect Beta", "GhostGuard Kobo 0.8.3.4 Protect Beta")
+    src = src.replace("Đã đủ dữ liệu - chờ kích hoạt", "Đã đủ dữ liệu - Start sẽ tự kích hoạt")
+    src = src.replace("Next: GhostGuard - Activate Profile", "Next: GhostGuard - Start (tự kích hoạt Profile).")
     return src
 
 
@@ -55,11 +54,9 @@ rewrite(ROOT / "ghostguard.sh", core_runtime)
 rewrite(ROOT / "profile_manager.sh", profile_runtime)
 rewrite(ROOT / "nm_quick.sh", quick_runtime)
 
-# Safety contract for the installed runtime. ui_action.sh intentionally contains
-# legacy .txt names only as migration *inputs*; writers are the files checked here.
 for path in (ROOT / "ghostguard.sh", ROOT / "profile_manager.sh"):
     text = path.read_text()
     if ".txt" in text:
         raise SystemExit(f"document-like runtime filename remains in {path}")
 
-print("runtime preparation: private state filenames + nonblocking status OK")
+print("runtime preparation: private state + auto-activate UX + nonblocking status OK")
