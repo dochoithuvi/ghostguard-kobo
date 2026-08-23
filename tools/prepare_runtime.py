@@ -39,7 +39,7 @@ def quick_runtime(src: str) -> str:
     if old not in src:
         raise SystemExit("nm_quick synchronous sync anchor missing")
     src = src.replace(old, new, 1)
-    src = src.replace("GhostGuard Kobo 0.8.3.3 Protect Beta", "GhostGuard Kobo 0.8.4 Adaptive Protect Beta")
+    src = src.replace("GhostGuard Kobo 0.8.3.3 Protect Beta", "GhostGuard Kobo 0.8.4.1 Safety Hotfix")
     src = src.replace("Đã đủ dữ liệu - chờ kích hoạt", "Đã đủ dữ liệu - Start sẽ tự kích hoạt")
     src = src.replace("Next: GhostGuard - Activate Profile", "Next: GhostGuard - Start (tự kích hoạt Profile).")
     return src
@@ -54,4 +54,4 @@ for path in (ROOT / "ghostguard.sh", ROOT / "profile_manager.sh"):
     if ".txt" in text:
         raise SystemExit(f"document-like runtime filename remains in {path}")
 
-print("runtime preparation: v0.8.4 adaptive Protect + private state + auto-activate UX OK")
+print("runtime preparation: v0.8.4.1 safety hotfix + private state + auto-activate UX OK")
