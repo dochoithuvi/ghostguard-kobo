@@ -41,6 +41,7 @@ jobs:
           make test
           make package koboroot
           tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/ghostguard.sh$'
+          tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/update.sh$'
           tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-armv7$'
           tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-aarch64$'
           tar -tzf dist/*-KoboRoot.tgz | grep -q '^mnt/onboard/.adds/nm/ghostguard$'
@@ -48,6 +49,8 @@ jobs:
           ! grep -q '\.txt' package/.adds/ghostguard/ghostguard.sh
           ! grep -q '\.txt' package/.adds/ghostguard/profile_manager.sh
           grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
+          grep -q 'koboroot_sha256' package/.adds/ghostguard/update.sh
+          grep -q 'GhostGuard - Update' package/.adds/nm/ghostguard
       - name: Publish stable online artifacts and manifest
         run: |
           set -eux
