@@ -1,7 +1,7 @@
 DCPRO GhostGuard Kobo
-Version: 0.8.3.1
+Version: 0.8.3.2
 Profile lifecycle: V5 live-readiness
-Native engine: v0.8.3 Protect Beta + v0.8.3.1 UX/runtime hotfix
+Native engine: v0.8.3 Protect Beta + v0.8.3.2 Nickel rebind hotfix
 Controller fingerprint: enabled
 Auto Start: Learn -> Shadow -> Protect
 Auto Learn -> Ready: enabled (live contacts.csv authoritative)
@@ -15,5 +15,6 @@ Reports: compressed archive only; loose legacy reports auto-cleaned
 Protect: enabled after PROBATION_PASSED
 Quarantine: 10ms
 EVIOCGRAB: armed only after Nickel opens virtual touch
+Nickel hotplug: udevadm/mdev trigger + one controlled rebind if required
 uinput: capability-cloned virtual touchscreen
-Fail-open: enabled (uinput/grab/read/SYN_DROPPED faults release protection)
+Fail-open: enabled (uinput/grab/read/SYN_DROPPED/Nickel-rebind faults never arm physical grab)
