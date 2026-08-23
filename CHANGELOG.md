@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.3.3 - 2026-08-23
+
+- Replaced the customer-facing `GhostGuard - Report` menu with `GhostGuard - Update`; report generation remains available in the backend for diagnostics.
+- Added on-device online update via the existing GitHub distribution manifest.
+- Update downloads to `.kobo/KoboRoot.tgz.part`, verifies the manifest `koboroot_sha256`, and only then atomically stages `.kobo/KoboRoot.tgz`.
+- Failed network downloads, missing SHA verifier, checksum mismatch, or staging failure leave the currently installed GhostGuard untouched.
+- A successfully staged update triggers a delayed reboot so Kobo installs the package without USB/file copying.
+- `GhostGuard - Status` starts a throttled update check in the background and displays cached `Update: Up to date` / `AVAILABLE` state without blocking NickelMenu.
+- Stable GitHub manifest/artifact URLs remain unchanged, so future versions can be installed from the same Update menu.
+
+## 0.8.3.2 - 2026-08-23
+
+- Added `udevadm`/`mdev` input hotplug attempts when the GhostGuard virtual touchscreen is created.
+- If Nickel does not open the virtual input, Protect performs one controlled Nickel rebind/restart and verifies the new Nickel process owns the virtual event fd before arming.
+- No physical `EVIOCGRAB` is permitted before Nickel fd verification; rebind failure remains fail-open.
+- Added explicit `NICKEL_REBINDING` and `VIRTUAL_EVENT_NOT_FOUND` status states.
+- `GhostGuard - Start` can cleanly retry a previous virtual-input-open failure without restart loops.
+
 ## 0.8.3.1 - 2026-08-22
 
 - Fixed `GhostGuard - Status` NickelMenu timeouts by moving Profile V5 sync to a background best-effort kick and increasing the local popup timeout budget.

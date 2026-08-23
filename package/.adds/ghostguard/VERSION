@@ -1,17 +1,18 @@
 DCPRO GhostGuard Kobo
-Version: 0.8.3.2
+Version: 0.8.3.3
 Profile lifecycle: V5 live-readiness
-Native engine: v0.8.3 Protect Beta + v0.8.3.2 Nickel rebind hotfix
+Native engine: v0.8.3 Protect Beta + v0.8.3.2 Nickel rebind + v0.8.3.3 Online Update
 Controller fingerprint: enabled
 Auto Start: Learn -> Shadow -> Protect
 Auto Learn -> Ready: enabled (live contacts.csv authoritative)
 Profile activation: manual
 Probation sessions: 2
 License: shared GhostGuard Kindle registry / RSA-SHA256 / serial-hash
-NickelMenu: 5-item user UX
-Status: nonblocking local snapshot; Profile sync runs in background
+NickelMenu: 5-item user UX (Status / Start / Activate Profile / Stop / Update)
+Online Update: manifest + SHA256 verified KoboRoot staging + automatic reboot
+Status: nonblocking local snapshot; update check and Profile sync run in background
 Runtime state: permanent .ggstate/.ggdata (no document-like .txt writers)
-Reports: compressed archive only; loose legacy reports auto-cleaned
+Reports: backend compressed archive only
 Protect: enabled after PROBATION_PASSED
 Quarantine: 10ms
 EVIOCGRAB: armed only after Nickel opens virtual touch
