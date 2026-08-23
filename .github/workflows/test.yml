@@ -16,7 +16,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq clang lld
-      - name: Shell lifecycle and Protect gates
+      - name: Shell lifecycle, Protect and Update gates
         run: |
           sh -n DCPRO_GhostGuard_Kobo_OneClick.sh
           make test
@@ -39,6 +39,7 @@ jobs:
           test -s "$TGZ"
           unzip -t "$ZIP" >/dev/null
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/ghostguard.sh$'
+          tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/update.sh$'
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-armv7$'
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/ghostguard/bin/ghostguardd-aarch64$'
           tar -tzf "$TGZ" | grep -q '^mnt/onboard/.adds/nm/ghostguard$'
@@ -46,3 +47,5 @@ jobs:
           ! unzip -p "$ZIP" .adds/ghostguard/ghostguard.sh | grep -q '\.txt'
           ! unzip -p "$ZIP" .adds/ghostguard/profile_manager.sh | grep -q '\.txt'
           unzip -p "$ZIP" .adds/ghostguard/nm_quick.sh | grep -q 'sync >/dev/null 2>&1 &'
+          unzip -p "$ZIP" .adds/ghostguard/update.sh | grep -q 'koboroot_sha256'
+          unzip -p "$ZIP" .adds/nm/ghostguard | grep -q 'GhostGuard - Update'
