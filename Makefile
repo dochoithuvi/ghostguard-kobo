@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.4.1
+VERSION := 0.8.5
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 CLANG ?= clang
@@ -32,6 +32,7 @@ test:
 	grep -q 'check-if-stale' scripts/nm_quick.sh
 	grep -q 'Update: AVAILABLE' scripts/nm_quick.sh
 	grep -q 'Blocked:.*Classic.*Burst' scripts/nm_quick.sh
+	grep -q 'GhostGuard Kobo 0.8.5 Ghost Capture' scripts/nm_quick.sh
 	grep -q 'QUARANTINE_MS=25' config/defaults.conf
 	grep -q 'BURST_QUARANTINE_MS=80' config/defaults.conf
 	grep -q 'PROBATION_PASSED) MODE=PROTECT' scripts/ghostguard.sh
@@ -56,6 +57,8 @@ test:
 	grep -q '25000u' .build/ghostguardd.c
 	grep -q '80000u' .build/ghostguardd.c
 	grep -q 'if(!burst_guard||elapsed>80000u)return 0;if(risk<35u)return 0;' .build/ghostguardd.c
+	grep -q 'ghost_capture.gglog' .build/ghostguardd.c
+	grep -q 'capture_contact' .build/ghostguardd.c
 	grep -q 'observer_profile.ggdata' .build/ghostguardd.c
 	grep -q 'RUNTIME_FAULT.ggstate' .build/ghostguardd.c
 	! grep -q '/data/profile.txt' .build/ghostguardd.c
@@ -73,9 +76,9 @@ test:
 	grep -q 'observer_profile.ggdata' package/.adds/ghostguard/ghostguard.sh
 	grep -q 'profile_v5.ggstate' package/.adds/ghostguard/profile_manager.sh
 	grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'GhostGuard Kobo 0.8.4.1 Safety Hotfix' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'GhostGuard Kobo 0.8.5 Ghost Capture' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'Blocked:.*Classic.*Burst' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'Start (tự kích hoạt Profile)' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'Start để tự kích hoạt Profile' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'manifest.online.json' package/.adds/ghostguard/update.sh
 	grep -q 'KoboRoot.tgz.part' package/.adds/ghostguard/update.sh
 	grep -q 'EMERGENCY_STOP' package/.adds/ghostguard/emergency_stop.sh
