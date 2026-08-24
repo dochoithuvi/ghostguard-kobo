@@ -78,7 +78,7 @@ test:
 	grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'GhostGuard Kobo 0.8.5 Ghost Capture' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'Blocked:.*Classic.*Burst' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'Start (tự kích hoạt Profile)' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'Start để tự kích hoạt Profile' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'manifest.online.json' package/.adds/ghostguard/update.sh
 	grep -q 'KoboRoot.tgz.part' package/.adds/ghostguard/update.sh
 	grep -q 'EMERGENCY_STOP' package/.adds/ghostguard/emergency_stop.sh
