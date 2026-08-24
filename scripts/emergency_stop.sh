@@ -9,6 +9,7 @@ ARMFILE="$RUN/PROTECT_ARMED"
 CHILDPID="$RUN/daemon.pid"
 PIDFILE="$RUN/supervisor.pid"
 PST="$DATA/PROTECT_STATUS.ggstate"
+EPST="$DATA/EPISODE_STATUS.ggstate"
 
 # Prevent supervisor from restarting first, then terminate the process which owns
 # the physical evdev fd. Process exit closes EVIOCGRAB in the kernel.
@@ -22,6 +23,7 @@ if [ -f "$PIDFILE" ]; then
     [ -n "$P" ] && kill -TERM "$P" 2>/dev/null || true
 fi
 printf 'STATE=EMERGENCY_STOP\nPROTECT_ACTIVE=0\nFAIL_OPEN=1\n' > "$PST" 2>/dev/null || true
+printf 'STATE=IDLE\n' > "$EPST" 2>/dev/null || true
 
 # Cleanup is intentionally detached; nothing here may hold NickelMenu waiting.
 (
