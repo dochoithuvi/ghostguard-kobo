@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.5
+VERSION := 0.8.6
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 CLANG ?= clang
@@ -31,10 +31,13 @@ test:
 	grep -q 'SHA_MISMATCH' scripts/update.sh
 	grep -q 'check-if-stale' scripts/nm_quick.sh
 	grep -q 'Update: AVAILABLE' scripts/nm_quick.sh
-	grep -q 'Blocked:.*Classic.*Burst' scripts/nm_quick.sh
-	grep -q 'GhostGuard Kobo 0.8.5 Ghost Capture' scripts/nm_quick.sh
+	grep -q 'Blocked:.*Classic.*Burst.*Episode' scripts/nm_quick.sh
+	grep -q 'GhostGuard Kobo 0.8.6 Ghost Episode Guard' scripts/nm_quick.sh
+	grep -q 'Episode Guard:' scripts/nm_quick.sh
 	grep -q 'QUARANTINE_MS=25' config/defaults.conf
 	grep -q 'BURST_QUARANTINE_MS=80' config/defaults.conf
+	grep -q 'EPISODE_QUARANTINE_MS=120' config/defaults.conf
+	grep -q 'EPISODE_DECAY_MS=1200' config/defaults.conf
 	grep -q 'PROBATION_PASSED) MODE=PROTECT' scripts/ghostguard.sh
 	grep -q 'PROTECT_ARMED' scripts/supervisor.sh
 	grep -q 'DCPRO GhostGuard Virtual Touch' scripts/supervisor.sh
@@ -54,11 +57,17 @@ test:
 	grep -q 'suppress_tail' .build/ghostguardd.c
 	grep -q 'burst_guard' .build/ghostguardd.c
 	grep -q 'reason=BURST' .build/ghostguardd.c
-	grep -q '25000u' .build/ghostguardd.c
-	grep -q '80000u' .build/ghostguardd.c
+	grep -q 'reason=EPISODE' .build/ghostguardd.c
+	grep -q 'episode_guard' .build/ghostguardd.c
+	grep -q 'episode_should_drop' .build/ghostguardd.c
+	grep -q '120000u' .build/ghostguardd.c
 	grep -q 'if(!burst_guard||elapsed>80000u)return 0;if(risk<35u)return 0;' .build/ghostguardd.c
 	grep -q 'ghost_capture.gglog' .build/ghostguardd.c
 	grep -q 'capture_contact' .build/ghostguardd.c
+	grep -q 'gap_us=' .build/ghostguardd.c
+	grep -q 'events=' .build/ghostguardd.c
+	grep -q 'tracking=' .build/ghostguardd.c
+	grep -q 'episode_hits=' .build/ghostguardd.c
 	grep -q 'observer_profile.ggdata' .build/ghostguardd.c
 	grep -q 'RUNTIME_FAULT.ggstate' .build/ghostguardd.c
 	! grep -q '/data/profile.txt' .build/ghostguardd.c
@@ -70,14 +79,15 @@ test:
 	sh tests/test_protect_beta.sh
 	sh tests/test_adaptive_protect.sh
 	sh tests/test_safety_hotfix.sh
+	python3 tests/test_episode_guard.py
 	go test ./cmd/gg-license-verify
 	$(MAKE) sync-package
 	sh -n package/.adds/ghostguard/*.sh
 	grep -q 'observer_profile.ggdata' package/.adds/ghostguard/ghostguard.sh
 	grep -q 'profile_v5.ggstate' package/.adds/ghostguard/profile_manager.sh
 	grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'GhostGuard Kobo 0.8.5 Ghost Capture' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'Blocked:.*Classic.*Burst' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'GhostGuard Kobo 0.8.6 Ghost Episode Guard' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'Blocked:.*Classic.*Burst.*Episode' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'Start để tự kích hoạt Profile' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'manifest.online.json' package/.adds/ghostguard/update.sh
 	grep -q 'KoboRoot.tgz.part' package/.adds/ghostguard/update.sh
