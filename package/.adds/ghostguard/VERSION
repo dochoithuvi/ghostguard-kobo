@@ -1,9 +1,9 @@
 DCPRO GhostGuard Kobo
-Version: 0.8.6
+Version: 0.8.6.1
 Profile lifecycle: V5 live-readiness
-Native engine: Ghost Episode Guard + Adaptive Protect + Ghost Capture
+Native engine: Ghost Episode Guard + Adaptive Protect + Ghost Capture (Protect disabled by Safety Rollback)
 Controller fingerprint: enabled
-Auto Start: Learn -> auto-activate Ready Profile -> Shadow Probation -> Protect
+Auto Start: Learn -> auto-activate Ready Profile -> Shadow only
 Auto Learn -> Ready: enabled (live contacts.csv authoritative)
 Profile activation: automatic from Start when Profile is ready
 Probation sessions: 2
@@ -13,16 +13,12 @@ Online Update: background manifest + SHA256 verified KoboRoot staging + automati
 Status: nonblocking local snapshot; update check and Profile sync run in background
 Runtime state: permanent .ggstate/.ggdata (no document-like .txt writers)
 Reports: backend compressed archive only
-Protect: enabled after PROBATION_PASSED
-Normal quarantine: 25ms
-Burst Guard quarantine: up to 80ms after 3 rapid anomalous contacts
+Safety Rollback: enabled
+Protect: DISABLED in v0.8.6.1
+EVIOCGRAB: OFF by supervisor hard gate
+Start: SHADOW + Ghost Capture only
+Normal quarantine/Burst/Episode classifier code: retained but monitor-only while Protect is disabled
 Ghost Episode trigger: repeated <=70ms rapid contacts or multi/overlap cadence
-Ghost Episode quarantine: up to 120ms only while high-confidence episode is active
-Ghost Episode decay: 1200ms without matching abnormal cadence
-Emergency Stop: background, kill-first, EVIOCGRAB fail-open before cleanup/profile sync
-Blocked telemetry: Classic + Burst + Episode counters
 Ghost Capture: duration/gap/event count/tracking/position/path/episode context
-EVIOCGRAB: armed only after Nickel opens virtual touch
-Nickel hotplug: udevadm/mdev trigger + one controlled rebind if required
-uinput: capability-cloned virtual touchscreen
-Fail-open: enabled (uinput/grab/read/SYN_DROPPED/Nickel-rebind/Stop faults release physical grab)
+Emergency Stop: background, kill-first, clears any stale PROTECT_ARMED state
+Fail-open: enabled; stale or live PROTECT requests are forced to SHADOW before native launch
