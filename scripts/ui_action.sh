@@ -1,6 +1,6 @@
 #!/bin/sh
-# GhostGuard Kobo v0.8.7 Safety Handshake customer action wrapper.
-# Stop is emergency-first; Start may enter Protect only through guarded preflight.
+# GhostGuard Kobo v0.8.7.1 Emergency Shadow Rollback customer action wrapper.
+# Stop is emergency-first; Start is SHADOW-only. No EVIOCGRAB path is reachable from UI.
 set -u
 
 BASE=/mnt/onboard/.adds/ghostguard
@@ -41,27 +41,19 @@ cleanup_loose_reports() {
         done
         rm -rf "$REPORT_PUBLIC" 2>/dev/null || true
     fi
-
     if [ -d "$REPORT_HIDDEN" ]; then
         for F in "$REPORT_HIDDEN"/*; do
             [ -e "$F" ] || continue
-            case "$F" in
-                *.tar.gz|*.tar) ;;
-                *) rm -rf "$F" 2>/dev/null || true ;;
-            esac
+            case "$F" in *.tar.gz|*.tar) ;; *) rm -rf "$F" 2>/dev/null || true ;; esac
         done
     fi
-
     [ -d "$DATA/reports" ] && rm -rf "$DATA/reports"/* 2>/dev/null || true
     find "$DATA" -type f -name '*.txt' -exec rm -f {} \; 2>/dev/null || true
     rm -f "$BASE/SAFETY.txt" "$BASE/SAFETY.ggdata" "$BASE/STATUS_LIBRARY_NOTES" 2>/dev/null || true
     find "$BASE" -maxdepth 1 -type f -name '*.txt' -exec rm -f {} \; 2>/dev/null || true
 }
 
-cleanup_all() {
-    migrate_legacy_state
-    cleanup_loose_reports
-}
+cleanup_all() { migrate_legacy_state; cleanup_loose_reports; }
 
 auto_activate_if_ready() {
     [ -x "$PROFILE_MGR" ] || return 0
@@ -91,45 +83,28 @@ emergency_stop() {
 ACTION="${1:-cleanup}"
 shift 2>/dev/null || true
 
-# Stop must run before ANY migration, find, report cleanup or Profile work.
-if [ "$ACTION" = stop ]; then
-    emergency_stop
-    exit 0
-fi
-
+if [ "$ACTION" = stop ]; then emergency_stop; exit 0; fi
 cleanup_all
 
 case "$ACTION" in
     start)
-        auto_activate_if_ready || {
-            RC=$?
-            echo "Không thể tự kích hoạt Profile."
-            cleanup_all
-            exit "$RC"
-        }
-        "$CORE" start "$@"
+        auto_activate_if_ready || { RC=$?; echo "Không thể tự kích hoạt Profile."; cleanup_all; exit "$RC"; }
+        # v0.8.7.1 emergency rollback: observation only, never request PROTECT.
+        "$CORE" shadow "$@"
         RC=$?
         ;;
     update)
         [ -x "$UPDATER" ] || { echo "Online updater chưa sẵn sàng."; RC=8; cleanup_all; exit "$RC"; }
         "$UPDATER" install
         RC=$?
-        if [ "$RC" -eq 0 ]; then
-            "$UPDATER" reboot-if-staged >/dev/null 2>&1 || true
-        fi
+        [ "$RC" -eq 0 ] && "$UPDATER" reboot-if-staged >/dev/null 2>&1 || true
         ;;
     approve|report)
-        "$CORE" "$ACTION" "$@"
-        RC=$?
-        ;;
+        "$CORE" "$ACTION" "$@"; RC=$? ;;
     cleanup)
-        echo "GhostGuard library cleanup complete."
-        RC=0
-        ;;
+        echo "GhostGuard library cleanup complete."; RC=0 ;;
     *)
-        echo "Unsupported UI action: $ACTION"
-        exit 2
-        ;;
+        echo "Unsupported UI action: $ACTION"; exit 2 ;;
 esac
 
 cleanup_all
