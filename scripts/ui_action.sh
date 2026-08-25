@@ -1,6 +1,6 @@
 #!/bin/sh
-# GhostGuard Kobo v0.8.6.1 Safety Rollback customer action wrapper.
-# Stop is emergency-first and Start is SHADOW-only in this hotfix.
+# GhostGuard Kobo v0.8.7 Safety Handshake customer action wrapper.
+# Stop is emergency-first; Start may enter Protect only through guarded preflight.
 set -u
 
 BASE=/mnt/onboard/.adds/ghostguard
@@ -75,7 +75,7 @@ emergency_stop() {
     if [ -x "$EMERGENCY" ]; then
         "$EMERGENCY" >/dev/null 2>&1 || true
     else
-        rm -f "$RUN/RUN" "$RUN/PROTECT_ARMED" 2>/dev/null || true
+        rm -f "$RUN/RUN" "$RUN/PROTECT_ARMED" "$RUN/PROTECT_FILTER_ARMED" "$RUN/PROTECT_WATCHDOG" 2>/dev/null || true
         [ -f "$RUN/daemon.pid" ] && kill -TERM "$(cat "$RUN/daemon.pid" 2>/dev/null)" 2>/dev/null || true
         [ -f "$RUN/supervisor.pid" ] && kill -TERM "$(cat "$RUN/supervisor.pid" 2>/dev/null)" 2>/dev/null || true
     fi
@@ -107,8 +107,7 @@ case "$ACTION" in
             cleanup_all
             exit "$RC"
         }
-        # v0.8.6.1 safety rollback: Start is observation-only. Never request PROTECT.
-        "$CORE" shadow "$@"
+        "$CORE" start "$@"
         RC=$?
         ;;
     update)
