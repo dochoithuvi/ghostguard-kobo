@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.6
+VERSION := 0.8.6.1
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 CLANG ?= clang
@@ -23,6 +23,7 @@ test:
 	grep -q 'ui_action.sh update' nickelmenu/ghostguard
 	grep -q 'auto_activate_if_ready' scripts/ui_action.sh
 	grep -q 'emergency_stop' scripts/ui_action.sh
+	grep -q '"$$CORE" shadow' scripts/ui_action.sh
 	grep -q 'PROTECT_ACTIVE=0' scripts/emergency_stop.sh
 	grep -q 'PENDING_APPROVAL' scripts/ui_action.sh
 	grep -q 'manifest.online.json' scripts/update.sh
@@ -31,13 +32,16 @@ test:
 	grep -q 'SHA_MISMATCH' scripts/update.sh
 	grep -q 'check-if-stale' scripts/nm_quick.sh
 	grep -q 'Update: AVAILABLE' scripts/nm_quick.sh
-	grep -q 'Blocked:.*Classic.*Burst.*Episode' scripts/nm_quick.sh
-	grep -q 'GhostGuard Kobo 0.8.6 Ghost Episode Guard' scripts/nm_quick.sh
-	grep -q 'Episode Guard:' scripts/nm_quick.sh
+	grep -q 'Blocked:.*Classic.*Burst.*Episode' scripts/nm_quick.sh || grep -q 'Historical blocked:.*Classic.*Burst.*Episode' scripts/nm_quick.sh
+	grep -q 'GhostGuard Kobo 0.8.6.1 Safety Rollback' scripts/nm_quick.sh
+	grep -q 'Protect: DISABLED (Safety Rollback)' scripts/nm_quick.sh
+	grep -q 'EVIOCGRAB: OFF' scripts/nm_quick.sh
 	grep -q 'QUARANTINE_MS=25' config/defaults.conf
 	grep -q 'BURST_QUARANTINE_MS=80' config/defaults.conf
 	grep -q 'EPISODE_QUARANTINE_MS=120' config/defaults.conf
 	grep -q 'EPISODE_DECAY_MS=1200' config/defaults.conf
+	grep -q 'SAFETY_ROLLBACK=1' config/defaults.conf
+	grep -q 'PROTECT_ACTIVE=0' config/defaults.conf
 	grep -q 'PROBATION_PASSED) MODE=PROTECT' scripts/ghostguard.sh
 	grep -q 'PROTECT_ARMED' scripts/supervisor.sh
 	grep -q 'DCPRO GhostGuard Virtual Touch' scripts/supervisor.sh
@@ -45,8 +49,9 @@ test:
 	grep -q 'NICKEL_REBINDING' scripts/supervisor.sh
 	grep -q '/etc/init.d/z-nickel-hardware-status' scripts/supervisor.sh
 	grep -q 'nickel_has_fd.*arm_now' scripts/supervisor.sh
+	grep -q 'SAFETY_ROLLBACK requested=PROTECT forced=SHADOW' scripts/supervisor.sh
+	grep -q 'PROBATION_PASSED -> SHADOW retained' scripts/supervisor.sh
 	grep -q 'nickel_rebind_once' scripts/ghostguard.sh
-	grep -q 'VIRTUAL_EVENT_NOT_FOUND' scripts/nm_quick.sh
 	grep -q 'BASELINE_STABLE_LIVE' scripts/profile_manager.sh
 	grep -q 'EVIOCGRAB' src/ghostguardd.c
 	grep -q 'UI_DEV_CREATE' src/ghostguardd.c
@@ -80,18 +85,21 @@ test:
 	sh tests/test_adaptive_protect.sh
 	sh tests/test_safety_hotfix.sh
 	python3 tests/test_episode_guard.py
+	sh tests/test_safety_rollback.sh
 	go test ./cmd/gg-license-verify
 	$(MAKE) sync-package
 	sh -n package/.adds/ghostguard/*.sh
 	grep -q 'observer_profile.ggdata' package/.adds/ghostguard/ghostguard.sh
 	grep -q 'profile_v5.ggstate' package/.adds/ghostguard/profile_manager.sh
 	grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'GhostGuard Kobo 0.8.6 Ghost Episode Guard' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'Blocked:.*Classic.*Burst.*Episode' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'GhostGuard Kobo 0.8.6.1 Safety Rollback' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'Protect: DISABLED (Safety Rollback)' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'Start để tự kích hoạt Profile' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'manifest.online.json' package/.adds/ghostguard/update.sh
 	grep -q 'KoboRoot.tgz.part' package/.adds/ghostguard/update.sh
 	grep -q 'EMERGENCY_STOP' package/.adds/ghostguard/emergency_stop.sh
+	grep -q '^Version: 0.8.6.1$$' package/.adds/ghostguard/VERSION
+	grep -q '^Protect: DISABLED in v0.8.6.1$$' package/.adds/ghostguard/VERSION
 	! grep -q '\.txt' package/.adds/ghostguard/ghostguard.sh
 	! grep -q '\.txt' package/.adds/ghostguard/profile_manager.sh
 	test ! -e package/.adds/ghostguard/SAFETY.ggdata
