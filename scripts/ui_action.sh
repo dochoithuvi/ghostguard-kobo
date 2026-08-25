@@ -1,6 +1,6 @@
 #!/bin/sh
-# GhostGuard Kobo v0.8.4.1 customer action wrapper.
-# Stop is emergency-first and must never block on cleanup/profile sync.
+# GhostGuard Kobo v0.8.6.1 Safety Rollback customer action wrapper.
+# Stop is emergency-first and Start is SHADOW-only in this hotfix.
 set -u
 
 BASE=/mnt/onboard/.adds/ghostguard
@@ -107,7 +107,8 @@ case "$ACTION" in
             cleanup_all
             exit "$RC"
         }
-        "$CORE" start "$@"
+        # v0.8.6.1 safety rollback: Start is observation-only. Never request PROTECT.
+        "$CORE" shadow "$@"
         RC=$?
         ;;
     update)

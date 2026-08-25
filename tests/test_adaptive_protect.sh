@@ -7,5 +7,6 @@ grep -q '80000u' .build/ghostguardd.c
 grep -q '25000u' .build/ghostguardd.c
 grep -q 'reason=BURST' .build/ghostguardd.c
 grep -q 'burst_hits>=3u' .build/ghostguardd.c
-grep -q 'Blocked:.*Classic.*Burst' scripts/nm_quick.sh
+# v0.8.6.1 is monitor-only; keep accepting the historical counter label.
+grep -q 'Blocked:.*Classic.*Burst' scripts/nm_quick.sh || grep -q 'Historical blocked:.*Classic.*Burst' scripts/nm_quick.sh
 echo 'adaptive protect regression checks: PASS'

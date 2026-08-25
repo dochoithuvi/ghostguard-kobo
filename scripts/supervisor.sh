@@ -1,8 +1,7 @@
 #!/bin/sh
-# GhostGuard Kobo v0.8.3.2 supervisor.
-# Protect is armed only after Nickel has opened the GhostGuard uinput device.
-# If Nickel does not hotplug the virtual input, attempt one controlled rebind;
-# physical EVIOCGRAB is still forbidden until the new Nickel process owns it.
+# GhostGuard Kobo v0.8.6.1 Safety Rollback supervisor.
+# Protect plumbing is retained for diagnostics, but this hotfix hard-clamps any
+# PROTECT request to SHADOW before the native daemon can arm EVIOCGRAB.
 set -u
 BASE=/mnt/onboard/.adds/ghostguard; RUN="$BASE/runtime"; DATA="$BASE/data"; LOG="$DATA/native.log"
 RUNFLAG="$RUN/RUN"; MODEFILE="$RUN/mode"; INPUTFILE="$RUN/input_device"; CHILDPID="$RUN/daemon.pid"; ARMFILE="$RUN/PROTECT_ARMED"; REBINDFILE="$RUN/nickel_rebind_once"
@@ -30,11 +29,26 @@ arm_protect(){ rm -f "$ARMFILE"; WAIT=0; V=""; while [ "$WAIT" -lt 8 ] && [ -f "
  [ -n "$V" ]&&[ -e "$V" ]||{ echo "$(date) PROTECT_NOT_ARMED virtual event missing; fail-open" >> "$LOG"; write_pstate VIRTUAL_EVENT_NOT_FOUND; return 1; }
  if restart_nickel_once "$V"; then write_pstate VIRTUAL_READY_WAITING_FOR_NICKEL; if wait_nickel_open "$V" 15; then arm_now "$V"; return 0; fi; fi
  echo "$(date) PROTECT_NOT_ARMED virtual=$V; Nickel did not open virtual input after hotplug/rebind; fail-open" >> "$LOG"; write_pstate NICKEL_VIRTUAL_NOT_OPEN; return 1; }
+
+# v0.8.6.1 hard safety gate: no path below may launch native in PROTECT.
+force_shadow_mode(){
+ M="$1"
+ if [ "$M" = PROTECT ]; then
+   echo SHADOW > "$MODEFILE"
+   rm -f "$ARMFILE" 2>/dev/null || true
+   write_pstate SAFETY_ROLLBACK_SHADOW
+   echo "$(date) SAFETY_ROLLBACK requested=PROTECT forced=SHADOW" >> "$LOG"
+   echo SHADOW
+   return
+ fi
+ case "$M" in LEARN|SHADOW) echo "$M";; *) echo SHADOW > "$MODEFILE"; echo SHADOW;; esac
+}
+
 while [ -f "$RUNFLAG" ];do
- [ -f "$BASE/SAFE_MODE" ]&&break; ARCH="$(arch_name)"; BIN="$BASE/bin/ghostguardd-$ARCH"; [ -x "$BIN" ]||{ echo "$(date) NO_BINARY arch=$ARCH">>"$LOG";break;}; INPUT="$(find_touch)"; [ -n "$INPUT" ]||{ echo "$(date) WAIT_TOUCH">>"$LOG";sleep 4;continue;}; echo "$INPUT">"$INPUTFILE"; MODE="$(cat "$MODEFILE" 2>/dev/null)"; rm -f "$ARMFILE"; echo "$(date) START mode=$MODE input=$INPUT arch=$ARCH">>"$LOG"; "$BIN" >>"$LOG" 2>&1 & C=$!; echo "$C">"$CHILDPID"
+ [ -f "$BASE/SAFE_MODE" ]&&break; ARCH="$(arch_name)"; BIN="$BASE/bin/ghostguardd-$ARCH"; [ -x "$BIN" ]||{ echo "$(date) NO_BINARY arch=$ARCH">>"$LOG";break;}; INPUT="$(find_touch)"; [ -n "$INPUT" ]||{ echo "$(date) WAIT_TOUCH">>"$LOG";sleep 4;continue;}; echo "$INPUT">"$INPUTFILE"; REQUESTED="$(cat "$MODEFILE" 2>/dev/null)"; MODE="$(force_shadow_mode "$REQUESTED")"; rm -f "$ARMFILE"; echo "$(date) START mode=$MODE requested=$REQUESTED input=$INPUT arch=$ARCH">>"$LOG"; "$BIN" >>"$LOG" 2>&1 & C=$!; echo "$C">"$CHILDPID"
  [ "$MODE" = SHADOW ] && [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" session-start >/dev/null 2>&1 || true
  AP=""; if [ "$MODE" = PROTECT ]; then arm_protect & AP=$!; fi
- while kill -0 "$C" 2>/dev/null;do sleep 5;[ -f "$RUNFLAG" ]||break; if [ -x "$PROFILE_MGR" ];then "$PROFILE_MGR" sync >/dev/null 2>&1||true; PS="$("$PROFILE_MGR" state 2>/dev/null||echo CALIBRATION)"; CUR="$(cat "$MODEFILE" 2>/dev/null)"; if [ "$CUR" = LEARN ]&&[ "$PS" = PENDING_APPROVAL ];then echo SHADOW>"$MODEFILE";echo "$(date) PROFILE_READY -> SHADOW">>"$LOG";kill "$C" 2>/dev/null||true;break;fi; if [ "$CUR" = SHADOW ]&&[ "$PS" = PROBATION_PASSED ];then echo PROTECT>"$MODEFILE";echo "$(date) PROBATION_PASSED -> PROTECT restart">>"$LOG";kill "$C" 2>/dev/null||true;break;fi;fi;done
+ while kill -0 "$C" 2>/dev/null;do sleep 5;[ -f "$RUNFLAG" ]||break; CUR="$(cat "$MODEFILE" 2>/dev/null)"; if [ "$CUR" = PROTECT ]; then echo SHADOW > "$MODEFILE"; rm -f "$ARMFILE"; write_pstate SAFETY_ROLLBACK_SHADOW; echo "$(date) SAFETY_ROLLBACK live PROTECT request -> SHADOW restart">>"$LOG"; kill "$C" 2>/dev/null||true; break; fi; if [ -x "$PROFILE_MGR" ];then "$PROFILE_MGR" sync >/dev/null 2>&1||true; PS="$("$PROFILE_MGR" state 2>/dev/null||echo CALIBRATION)"; CUR="$(cat "$MODEFILE" 2>/dev/null)"; if [ "$CUR" = LEARN ]&&[ "$PS" = PENDING_APPROVAL ];then echo SHADOW>"$MODEFILE";echo "$(date) PROFILE_READY -> SHADOW">>"$LOG";kill "$C" 2>/dev/null||true;break;fi; if [ "$CUR" = SHADOW ]&&[ "$PS" = PROBATION_PASSED ];then write_pstate SAFETY_ROLLBACK_SHADOW; echo "$(date) PROBATION_PASSED -> SHADOW retained by v0.8.6.1 safety rollback">>"$LOG";fi;fi;done
  [ -n "$AP" ]&&kill "$AP" 2>/dev/null||true; rm -f "$ARMFILE"; wait "$C"; RC=$?; rm -f "$CHILDPID"; echo "$(date) CHILD_EXIT rc=$RC fail-open retry_in=4s">>"$LOG"; [ -f "$RUNFLAG" ]||break;sleep 4
 done
 rm -f "$CHILDPID" "$ARMFILE"; echo "$(date) SUPERVISOR_EXIT">>"$LOG"
