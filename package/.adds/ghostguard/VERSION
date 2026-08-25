@@ -1,9 +1,9 @@
 DCPRO GhostGuard Kobo
-Version: 0.8.7
+Version: 0.8.7.1
 Profile lifecycle: V5 live-readiness
-Native engine: Safety Handshake + Deadman Watchdog + Ghost Episode Guard + Adaptive Protect + Ghost Capture
+Native engine: Ghost Episode Guard + Adaptive Protect + Ghost Capture (Protect disabled by Safety Lockdown)
 Controller fingerprint: enabled
-Auto Start: Learn -> auto-activate Ready Profile -> Shadow Probation -> guarded Protect
+Auto Start: Learn -> auto-activate Ready Profile -> Shadow only
 Auto Learn -> Ready: enabled (live contacts.csv authoritative)
 Profile activation: automatic from Start when Profile is ready
 Probation sessions: 2
@@ -13,21 +13,12 @@ Online Update: background manifest + SHA256 verified KoboRoot staging + automati
 Status: nonblocking local snapshot; update check and Profile sync run in background
 Runtime state: permanent .ggstate/.ggdata (no document-like .txt writers)
 Reports: backend compressed archive only
-Safety Handshake: enabled
-Protect precheck: post-EVIOCGRAB forwarding-only; classifier filter remains OFF until proxy frame succeeds
-Nickel verification: virtual event fd must be open before PROTECT_ARMED
-Post-grab proof: at least one SYN_REPORT must be written successfully through uinput before filter arm
-Preflight grace: 1 second forwarding-only after proxy proof
-Deadman Watchdog: checks virtual device, Nickel fd, Protect failure state and filter gate every second
-Human Escape Valve: first 3 contacts after filter arm always ALLOW; maximum 2 consecutive blocked contacts
-Protect: enabled only after PROBATION_PASSED + Safety Handshake PASS
-Normal quarantine: 25ms
-Burst Guard quarantine: up to 80ms after 3 rapid anomalous contacts
-Ghost Episode trigger: repeated <=70ms rapid contacts or multi/overlap cadence
-Ghost Episode quarantine: up to 120ms only while high-confidence episode is active
-Ghost Episode decay: 1200ms without matching abnormal cadence
-Emergency Stop: background, kill-first, clears arm/filter/watchdog gates before cleanup
+Safety Lockdown: enabled
+Protect: DISABLED in v0.8.7.1
+EVIOCGRAB: OFF by UI + core + supervisor hard gates
+Start: SHADOW + Ghost Capture only
+Safety Handshake/Deadman code: retained for future redesign but unreachable while Protect is locked out
+Ghost Episode Guard: monitor-only while Protect is disabled
 Ghost Capture: duration/gap/event count/tracking/position/path/episode/filter/escape context
-EVIOCGRAB: armed only after Nickel opens virtual touch; classifier blocking is a separate later gate
-uinput: capability-cloned virtual touchscreen
-Fail-open: enabled for uinput/grab/read/SYN_DROPPED/Nickel/watchdog/filter faults
+Emergency Stop: background, kill-first, clears stale arm/filter/watchdog gates
+Fail-open: enabled; stale or live PROTECT requests are forced to SHADOW before native launch

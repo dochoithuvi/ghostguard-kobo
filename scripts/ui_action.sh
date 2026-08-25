@@ -1,6 +1,6 @@
 #!/bin/sh
-# GhostGuard Kobo v0.8.7 Safety Handshake customer action wrapper.
-# Stop is emergency-first; Start may enter Protect only through guarded preflight.
+# GhostGuard Kobo v0.8.7.1 Safety Lockdown customer action wrapper.
+# Stop is emergency-first; Start is SHADOW-only. No customer UI path may request PROTECT.
 set -u
 
 BASE=/mnt/onboard/.adds/ghostguard
@@ -41,96 +41,53 @@ cleanup_loose_reports() {
         done
         rm -rf "$REPORT_PUBLIC" 2>/dev/null || true
     fi
-
     if [ -d "$REPORT_HIDDEN" ]; then
         for F in "$REPORT_HIDDEN"/*; do
             [ -e "$F" ] || continue
-            case "$F" in
-                *.tar.gz|*.tar) ;;
-                *) rm -rf "$F" 2>/dev/null || true ;;
-            esac
+            case "$F" in *.tar.gz|*.tar) ;; *) rm -rf "$F" 2>/dev/null || true;; esac
         done
     fi
-
     [ -d "$DATA/reports" ] && rm -rf "$DATA/reports"/* 2>/dev/null || true
     find "$DATA" -type f -name '*.txt' -exec rm -f {} \; 2>/dev/null || true
     rm -f "$BASE/SAFETY.txt" "$BASE/SAFETY.ggdata" "$BASE/STATUS_LIBRARY_NOTES" 2>/dev/null || true
     find "$BASE" -maxdepth 1 -type f -name '*.txt' -exec rm -f {} \; 2>/dev/null || true
 }
-
-cleanup_all() {
-    migrate_legacy_state
-    cleanup_loose_reports
-}
-
-auto_activate_if_ready() {
+cleanup_all(){ migrate_legacy_state; cleanup_loose_reports; }
+auto_activate_if_ready(){
     [ -x "$PROFILE_MGR" ] || return 0
     STATE="$($PROFILE_MGR state 2>/dev/null || echo CALIBRATION)"
     [ "$STATE" = PENDING_APPROVAL ] || return 0
     "$CORE" approve >/dev/null 2>&1 || return $?
-    return 0
 }
-
-emergency_stop() {
-    if [ -x "$EMERGENCY" ]; then
-        "$EMERGENCY" >/dev/null 2>&1 || true
+emergency_stop(){
+    if [ -x "$EMERGENCY" ]; then "$EMERGENCY" >/dev/null 2>&1 || true
     else
         rm -f "$RUN/RUN" "$RUN/PROTECT_ARMED" "$RUN/PROTECT_FILTER_ARMED" "$RUN/PROTECT_WATCHDOG" 2>/dev/null || true
         [ -f "$RUN/daemon.pid" ] && kill -TERM "$(cat "$RUN/daemon.pid" 2>/dev/null)" 2>/dev/null || true
         [ -f "$RUN/supervisor.pid" ] && kill -TERM "$(cat "$RUN/supervisor.pid" 2>/dev/null)" 2>/dev/null || true
     fi
-    (
-        sleep 1
-        [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" session-end >/dev/null 2>&1 || true
-        [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" sync >/dev/null 2>&1 || true
-        cleanup_all
-    ) >/dev/null 2>&1 &
+    ( sleep 1; [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" session-end >/dev/null 2>&1 || true; [ -x "$PROFILE_MGR" ] && "$PROFILE_MGR" sync >/dev/null 2>&1 || true; cleanup_all ) >/dev/null 2>&1 &
     return 0
 }
 
 ACTION="${1:-cleanup}"
 shift 2>/dev/null || true
-
-# Stop must run before ANY migration, find, report cleanup or Profile work.
-if [ "$ACTION" = stop ]; then
-    emergency_stop
-    exit 0
-fi
-
+if [ "$ACTION" = stop ]; then emergency_stop; exit 0; fi
 cleanup_all
-
 case "$ACTION" in
     start)
-        auto_activate_if_ready || {
-            RC=$?
-            echo "Không thể tự kích hoạt Profile."
-            cleanup_all
-            exit "$RC"
-        }
-        "$CORE" start "$@"
+        auto_activate_if_ready || { RC=$?; echo "Không thể tự kích hoạt Profile."; cleanup_all; exit "$RC"; }
+        "$CORE" shadow "$@"
         RC=$?
         ;;
     update)
         [ -x "$UPDATER" ] || { echo "Online updater chưa sẵn sàng."; RC=8; cleanup_all; exit "$RC"; }
-        "$UPDATER" install
-        RC=$?
-        if [ "$RC" -eq 0 ]; then
-            "$UPDATER" reboot-if-staged >/dev/null 2>&1 || true
-        fi
+        "$UPDATER" install; RC=$?
+        [ "$RC" -eq 0 ] && "$UPDATER" reboot-if-staged >/dev/null 2>&1 || true
         ;;
-    approve|report)
-        "$CORE" "$ACTION" "$@"
-        RC=$?
-        ;;
-    cleanup)
-        echo "GhostGuard library cleanup complete."
-        RC=0
-        ;;
-    *)
-        echo "Unsupported UI action: $ACTION"
-        exit 2
-        ;;
+    approve|report) "$CORE" "$ACTION" "$@"; RC=$?;;
+    cleanup) echo "GhostGuard library cleanup complete."; RC=0;;
+    *) echo "Unsupported UI action: $ACTION"; exit 2;;
 esac
-
 cleanup_all
 exit "$RC"
