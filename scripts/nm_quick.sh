@@ -1,63 +1,50 @@
 #!/bin/sh
-# DCPRO GhostGuard Kobo v0.8.7 Safety Handshake fast Status. Network update check is background-only.
+# DCPRO GhostGuard Kobo v0.8.7.1 Emergency Shadow Rollback fast Status.
 set -u
-BASE=/mnt/onboard/.adds/ghostguard; DATA="$BASE/data"; RUN="$BASE/runtime"; DEFAULTS="$BASE/defaults.conf"
-PV5="$DATA/profile_v5.txt"; PV5S="$DATA/profile_v5.ggstate"; LIC="$DATA/LICENSE_STATUS.txt"; LICS="$DATA/LICENSE_STATUS.ggstate"
-CSV="$DATA/contacts.csv"; PIDFILE="$RUN/supervisor.pid"; MODEFILE="$RUN/mode"; PST="$DATA/PROTECT_STATUS.ggstate"; EPST="$DATA/EPISODE_STATUS.ggstate"; HST="$DATA/HANDSHAKE_STATUS.ggstate"; PROXYST="$DATA/PROXY_STATUS.ggstate"; BLOCK="$DATA/blocked.gglog"; PM="$BASE/profile_manager.sh"
-FILTERFILE="$RUN/PROTECT_FILTER_ARMED"; WATCHFILE="$RUN/PROTECT_WATCHDOG"; UPD="$BASE/update.sh"; USTATE="$DATA/UPDATE_STATUS.ggstate"
-mkdir -p "$DATA" "$RUN" 2>/dev/null||true
-clean_serial(){ [ -f /mnt/onboard/.kobo/version ]&&sed -n '1{s/,.*//;p;}' /mnt/onboard/.kobo/version 2>/dev/null|tr '[:lower:]' '[:upper:]'|tr -cd 'A-Z0-9'; }
-is_running(){ [ -f "$PIDFILE" ]||return 1; P="$(cat "$PIDFILE" 2>/dev/null)";[ -n "$P" ]&&kill -0 "$P" 2>/dev/null; }
-pfile(){ [ -s "$PV5" ]&&echo "$PV5"||echo "$PV5S"; }; lfile(){ [ -s "$LIC" ]&&echo "$LIC"||echo "$LICS"; }
-kv(){ F="$1";K="$2";[ -r "$F" ]&&sed -n "s/^${K}=//p" "$F" 2>/dev/null|head -n1; }; v5(){ kv "$(pfile)" "$1"; }; cfg(){ V="$(kv "$DEFAULTS" "$1")";[ -n "$V" ]&&echo "$V"||echo "$2"; }
-num(){ case "${1:-}" in ''|*[!0-9]*) echo 0;;*)echo "$1";;esac; }; pct(){ N="$(num "$1")";D="$(num "$2")";[ "$D" -gt 0 ]&&{ X=$((N*100/D));[ "$X" -gt 100 ]&&X=100;echo "$X";}||echo 0; }
-live(){ [ -s "$CSV" ]||{ echo '0|0|0|0|0|0|0|-|-';return;}; awk -F, 'NR==1{next}NF>=13{n++;r=$8+0;c=$11;a=$12;d=$5+0;if(c=="INCOMPLETE")inc++;else{if(c=="WATCH")w++;if(c=="SUSPECT")s++;if(a=="WOULD_DROP")cand++;if($3!=""&&$4!=""&&$3!="-1"&&$4!="-1"&&d>=8000&&r<35)b++}lr=r;lc=c;la=a}END{printf "%d|%d|%d|%d|%d|%d|%d|%s|%s\n",n+0,b+0,inc+0,w+0,s+0,cand+0,lr+0,lc?lc:"-",la?la:"-"}' "$CSV" 2>/dev/null||echo '0|0|0|0|0|0|0|-|-'; }
-license_summary(){ F="$(lfile)";FIRST="$(head -n1 "$F" 2>/dev/null)";case "$FIRST" in OK\|*)echo Active;;DENY\|*)echo "Denied - ${FIRST#DENY|}"|cut -d';' -f1;;*)echo 'Not synced';;esac; }
-friendly(){ case "$1" in CALIBRATION|'')echo 'Đang học';;PENDING_APPROVAL)echo 'Đã đủ dữ liệu - tự kích hoạt khi Start';;PROBATION)echo 'Đang kiểm tra Profile';;PROBATION_PASSED)echo 'Đã sẵn sàng bảo vệ';;*)echo "$1";;esac; }
-protect_state(){ [ -r "$PST" ]&&{ S="$(kv "$PST" STATE)";[ -n "$S" ]&&echo "$S"&&return;};echo OFF; }
-handshake_state(){ [ -r "$HST" ]&&{ S="$(kv "$HST" STATE)";[ -n "$S" ]&&echo "$S"&&return;};echo IDLE; }
-handshake_reason(){ [ -r "$HST" ]&&kv "$HST" REASON; }
-episode_state(){ [ -r "$EPST" ]&&{ S="$(kv "$EPST" STATE)";[ -n "$S" ]&&echo "$S"&&return;};echo IDLE; }
-proxy_frames(){ [ -r "$PROXYST" ]&&num "$(kv "$PROXYST" FORWARDED_FRAMES)"||echo 0; }
+BASE=/mnt/onboard/.adds/ghostguard; DATA="$BASE/data"; RUN="$BASE/runtime"
+PV5="$DATA/profile_v5.ggstate"; LIC="$DATA/LICENSE_STATUS.ggstate"; PIDFILE="$RUN/supervisor.pid"; MODEFILE="$RUN/mode"
+BLOCK="$DATA/blocked.gglog"; UPD="$BASE/update.sh"; USTATE="$DATA/UPDATE_STATUS.ggstate"; PM="$BASE/profile_manager.sh"
+mkdir -p "$DATA" "$RUN" 2>/dev/null || true
+kv(){ F="$1"; K="$2"; [ -r "$F" ]&&sed -n "s/^${K}=//p" "$F" 2>/dev/null|head -n1; }
+is_running(){ [ -f "$PIDFILE" ]||return 1; P="$(cat "$PIDFILE" 2>/dev/null)"; [ -n "$P" ]&&kill -0 "$P" 2>/dev/null; }
+license_summary(){ F="$LIC"; FIRST="$(head -n1 "$F" 2>/dev/null)"; case "$FIRST" in OK\|*) echo Active;; DENY\|*) echo "Denied - ${FIRST#DENY|}"|cut -d';' -f1;; *) echo 'Not synced';; esac; }
+profile_state(){ [ -x "$PM" ]&&"$PM" state 2>/dev/null||echo CALIBRATION; }
 blocked_total(){ [ -s "$BLOCK" ]&&wc -l < "$BLOCK"|tr -d ' '||echo 0; }
 blocked_burst(){ [ -s "$BLOCK" ]&&awk '/reason=BURST/{n++}END{print n+0}' "$BLOCK" 2>/dev/null||echo 0; }
 blocked_episode(){ [ -s "$BLOCK" ]&&awk '/reason=EPISODE/{n++}END{print n+0}' "$BLOCK" 2>/dev/null||echo 0; }
 update_summary(){
   [ -r "$USTATE" ] || { echo 'Update: checking...'; return; }
   R="$(kv "$USTATE" RESULT)"; L="$(kv "$USTATE" LATEST)"
-  case "$R" in AVAILABLE) echo "Update: AVAILABLE -> ${L:-new version}";; CURRENT) echo "Update: Up to date (${L:-current})";; STAGED) echo "Update: Staged -> ${L:-new version}";; DOWNLOAD_FAILED|SHA_MISMATCH|SHA_TOOL_MISSING|STAGE_FAILED|NETWORK_ERROR) echo "Update: check/download unavailable";; *) echo 'Update: checking...';; esac
+  case "$R" in
+    AVAILABLE) echo "Update: AVAILABLE -> ${L:-new version}";;
+    CURRENT) echo "Update: Up to date (${L:-current})";;
+    STAGED) echo "Update: Staged -> ${L:-new version}";;
+    DOWNLOAD_FAILED|SHA_MISMATCH|SHA_TOOL_MISSING|STAGE_FAILED|NETWORK_ERROR) echo 'Update: check/download unavailable';;
+    *) echo 'Update: checking...';;
+  esac
 }
 show_status(){
-  [ -x "$PM" ]&&"$PM" sync >/dev/null 2>&1||true
+  [ -x "$PM" ]&&"$PM" sync >/dev/null 2>&1 &
   [ -x "$UPD" ]&&"$UPD" check-if-stale >/dev/null 2>&1 &
-  if is_running;then ENG=RUNNING;MODE="$(cat "$MODEFILE" 2>/dev/null)";[ -n "$MODE" ]||MODE=-;else ENG=STOPPED;MODE=-;fi
-  PS="$(v5 STATE)";[ -n "$PS" ]||PS=CALIBRATION; PC="$(num "$(v5 PROBATION_COMPLETED)")";PN="$(num "$(v5 PROBATION_REQUIRED)")";[ "$PN" -gt 0 ]||PN=2
-  OLD="$IFS";IFS='|';set -- $(live);IFS="$OLD"; C="$(num "${1:-0}")";B="$(num "${2:-0}")";I="$(num "${3:-0}")";W="$(num "${4:-0}")";SUS="$(num "${5:-0}")";CAN="$(num "${6:-0}")";LR="$(num "${7:-0}")";LC="${8:--}";LA="${9:--}"
-  NC="$(num "$(cfg PROFILE_READY_CONTACTS_MIN 80)")";NB="$(num "$(cfg PROFILE_READY_BASELINE_MIN 60)")";MI="$(num "$(cfg PROFILE_READY_MAX_INCOMPLETE_PCT 25)")";CP="$(pct "$C" "$NC")";BP="$(pct "$B" "$NB")";P="$CP";[ "$BP" -lt "$P" ]&&P="$BP";IP=0;[ "$C" -gt 0 ]&&IP=$((I*100/C))
-  echo 'GhostGuard Kobo 0.8.7 Safety Handshake';echo "Engine: $ENG | Auto mode: $MODE";echo "License: $(license_summary)";update_summary;echo "Profile: $(friendly "$PS")"
-  case "$PS" in CALIBRATION|'') echo "Learning: ${P}%";echo "Touches: $C/$NC | Baseline: $B/$NB";echo "Data quality: incomplete ${IP}% (max ${MI}%)";;PENDING_APPROVAL) echo 'Learning: 100% - đủ dữ liệu';echo "Touches: $C/$NC | Baseline: $B/$NB";;PROBATION) echo "Probation: $PC/$PN sessions";;PROBATION_PASSED) echo "Probation: Passed ($PN/$PN)";;esac
-  if [ "$W" -gt 0 ]||[ "$SUS" -gt 0 ]||[ "$CAN" -gt 0 ];then echo "Ghost telemetry: Watch $W | Suspect $SUS | Candidate $CAN";fi
-  [ "$C" -gt 0 ]&&echo "Last touch: risk $LR | $LC / $LA"
-  PSTAT="$(protect_state)"; HSTAT="$(handshake_state)"; HWHY="$(handshake_reason)"; ESTAT="$(episode_state)"; PF="$(proxy_frames)"; BL="$(num "$(blocked_total)")"; BB="$(num "$(blocked_burst)")"; BE="$(num "$(blocked_episode)")"; BC=$((BL-BB-BE));[ "$BC" -lt 0 ]&&BC=0
-  if [ "$ENG" = RUNNING ]&&[ "$MODE" = PROTECT ];then
-    if [ "$PSTAT" = ACTIVE ]&&[ "$HSTAT" = PASS ]&&[ -f "$FILTERFILE" ];then
-      echo "Protect: ON | Blocked: $BL (Classic $BC | Burst $BB | Episode $BE)"
-      echo "Safety Handshake: PASS | Proxy frames: $PF | Deadman: $([ -f "$WATCHFILE" ]&&echo ON||echo OFF)"
-      echo "Episode Guard: $ESTAT | Quarantine: 25ms / Episode up to 120ms"
-      echo 'Escape Valve: ON | first 3 contacts ALLOW | max 2 consecutive blocks'
-    elif [ "$PSTAT" = ACTIVE_PRECHECK ]||[ "$HSTAT" = PRECHECK ];then
-      echo "Protect: PRECHECK (forward-only) | Blocked disabled | Proxy frames: $PF"
-      echo 'Safety Handshake: WAIT | classifier filter: OFF'
-      echo 'Next safety step: chạm màn hình một lần; nếu proxy không xác nhận, GhostGuard tự về Shadow.'
-    else
-      case "$PSTAT" in UINPUT_UNAVAILABLE|UINPUT_CREATE_FAILED|UINPUT_CONFIG_WRITE_FAILED|EVIOCGRAB_FAILED|NICKEL_VIRTUAL_NOT_OPEN|VIRTUAL_EVENT_NOT_FOUND|SYN_DROPPED_FAIL_OPEN|UINPUT_WRITE_FAILED_FAIL_OPEN|FILTER_DISARMED_FAIL_OPEN|INPUT_READ_FAILED_FAIL_OPEN|SAFETY_FAIL_OPEN) echo "Protect: OFF (fail-open) | $PSTAT";;NICKEL_REBINDING)echo 'Protect: PRECHECK | rebinding Nickel once';;VIRTUAL_READY_WAITING_FOR_NICKEL)echo 'Protect: PRECHECK | waiting Nickel virtual touch';;*) echo "Protect: PRECHECK | state=$PSTAT";;esac
-      [ "$HSTAT" = FAIL ]&&echo "Safety Handshake: FAIL | ${HWHY:-unknown}"
-    fi
-  else
-    echo "Protect: OFF | Mode: ${MODE:-SHADOW} | Historical blocked: $BL (Classic $BC | Burst $BB | Episode $BE)"
-    echo 'Safety Handshake: standby | Fail-open direct physical touch'
-  fi
+  if is_running; then ENG=RUNNING; MODE="$(cat "$MODEFILE" 2>/dev/null)"; else ENG=STOPPED; MODE=-; fi
+  [ "$MODE" = PROTECT ] && MODE=SHADOW
+  PS="$(profile_state)"; [ -n "$PS" ] || PS=CALIBRATION
+  BL="$(blocked_total)"; BB="$(blocked_burst)"; BE="$(blocked_episode)"; BC=$((BL-BB-BE)); [ "$BC" -lt 0 ]&&BC=0
+  echo 'GhostGuard Kobo 0.8.7.1 Emergency Shadow Rollback'
+  echo "Engine: $ENG | Mode: $MODE"
+  echo "License: $(license_summary)"
+  update_summary
+  echo "Profile: $PS"
+  echo "Protect: DISABLED | Historical blocked: $BL (Classic $BC | Burst $BB | Episode $BE)"
+  echo 'EVIOCGRAB: OFF | Safety Handshake: DISABLED'
+  echo 'Ghost Episode Guard: MONITOR-ONLY | Ghost Capture: ON'
   echo 'Fail-open: ON'
-  case "$PS" in CALIBRATION|'')echo 'Next: tiếp tục dùng máy bình thường.';;PENDING_APPROVAL)echo 'Next: GhostGuard - Start để tự kích hoạt Profile.';;PROBATION)echo 'Next: Start/Stop đủ 2 phiên Probation.';;PROBATION_PASSED) case "$PSTAT/$HSTAT" in ACTIVE/PASS)echo 'Next: Protect đang chạy qua Safety Handshake + Deadman Watchdog.';;ACTIVE_PRECHECK/*|*/PRECHECK)echo 'Next: chạm màn hình một lần để hoàn tất post-grab preflight.';;*)echo 'Next: GhostGuard - Start; lỗi handshake sẽ tự fail-open về Shadow.';;esac;;esac
+  case "$PS" in
+    CALIBRATION|'') echo 'Next: dùng máy bình thường để tiếp tục học.';;
+    PENDING_APPROVAL) echo 'Next: GhostGuard - Start để tự kích hoạt Profile và chạy Shadow.';;
+    PROBATION) echo 'Next: tiếp tục Start/Stop đủ phiên Probation; Protect vẫn khóa an toàn.';;
+    PROBATION_PASSED) echo 'Next: Start chỉ chạy Shadow + Ghost Capture trong v0.8.7.1.';;
+    *) echo 'Next: Start chỉ chạy Shadow + Ghost Capture.';;
+  esac
 }
-case "${1:-status}" in status)show_status;;license)echo "DEVICE_ID=$(clean_serial)";cat "$(lfile)" 2>/dev/null||echo NOT_SYNCED;;device-id)echo "DEVICE_ID=$(clean_serial)";;cleanup)echo done;;*)echo "Usage: $0 status";exit 1;;esac
+case "${1:-status}" in status) show_status;; cleanup) echo done;; *) echo "Usage: $0 status"; exit 1;; esac
