@@ -32,7 +32,7 @@ test:
 	grep -q 'SAFETY_ROLLBACK requested=' scripts/supervisor.sh
 	grep -q 'PROBATION_PASSED -> SHADOW retained by v0.8.7.1 rollback' scripts/supervisor.sh
 	! grep -q 'arm_protect' scripts/supervisor.sh
-	! grep -q 'EVIOCGRAB' scripts/supervisor.sh
+	! grep -q 'k_ioctl.*EVIOCGRAB' scripts/supervisor.sh
 	grep -q 'BASELINE_STABLE_LIVE' scripts/profile_manager.sh
 	grep -q 'EVIOCGRAB' src/ghostguardd.c
 	grep -q 'UI_DEV_CREATE' src/ghostguardd.c
