@@ -1,5 +1,5 @@
 SHELL := /bin/sh
-VERSION := 0.8.6.1
+VERSION := 0.8.7
 DIST := dist/GhostGuard-Kobo-v$(VERSION).zip
 KOBOROOT := dist/GhostGuard-Kobo-v$(VERSION)-KoboRoot.tgz
 CLANG ?= clang
@@ -23,8 +23,11 @@ test:
 	grep -q 'ui_action.sh update' nickelmenu/ghostguard
 	grep -q 'auto_activate_if_ready' scripts/ui_action.sh
 	grep -q 'emergency_stop' scripts/ui_action.sh
-	grep -q '"$$CORE" shadow' scripts/ui_action.sh
+	grep -q '"$$CORE" start' scripts/ui_action.sh
+	grep -q 'PROTECT_FILTER_ARMED' scripts/ui_action.sh
 	grep -q 'PROTECT_ACTIVE=0' scripts/emergency_stop.sh
+	grep -q 'PROTECT_FILTER_ARMED' scripts/emergency_stop.sh
+	grep -q 'PROTECT_WATCHDOG' scripts/emergency_stop.sh
 	grep -q 'PENDING_APPROVAL' scripts/ui_action.sh
 	grep -q 'manifest.online.json' scripts/update.sh
 	grep -q 'koboroot_sha256' scripts/update.sh
@@ -32,25 +35,32 @@ test:
 	grep -q 'SHA_MISMATCH' scripts/update.sh
 	grep -q 'check-if-stale' scripts/nm_quick.sh
 	grep -q 'Update: AVAILABLE' scripts/nm_quick.sh
-	grep -q 'Blocked:.*Classic.*Burst.*Episode' scripts/nm_quick.sh || grep -q 'Historical blocked:.*Classic.*Burst.*Episode' scripts/nm_quick.sh
-	grep -q 'GhostGuard Kobo 0.8.6.1 Safety Rollback' scripts/nm_quick.sh
-	grep -q 'Protect: DISABLED (Safety Rollback)' scripts/nm_quick.sh
-	grep -q 'EVIOCGRAB: OFF' scripts/nm_quick.sh
+	grep -q 'Blocked:.*Classic.*Burst.*Episode' scripts/nm_quick.sh
+	grep -q 'GhostGuard Kobo 0.8.7 Safety Handshake' scripts/nm_quick.sh
+	grep -q 'Safety Handshake: PASS' scripts/nm_quick.sh
+	grep -q 'Protect: PRECHECK (forward-only)' scripts/nm_quick.sh
+	grep -q 'Escape Valve: ON' scripts/nm_quick.sh
 	grep -q 'QUARANTINE_MS=25' config/defaults.conf
 	grep -q 'BURST_QUARANTINE_MS=80' config/defaults.conf
 	grep -q 'EPISODE_QUARANTINE_MS=120' config/defaults.conf
 	grep -q 'EPISODE_DECAY_MS=1200' config/defaults.conf
-	grep -q 'SAFETY_ROLLBACK=1' config/defaults.conf
-	grep -q 'PROTECT_ACTIVE=0' config/defaults.conf
+	grep -q 'SAFETY_HANDSHAKE=1' config/defaults.conf
+	grep -q 'SAFETY_ROLLBACK=0' config/defaults.conf
+	grep -q 'PROTECT_ACTIVE=1' config/defaults.conf
+	grep -q 'ESCAPE_GRACE_CONTACTS=3' config/defaults.conf
+	grep -q 'ESCAPE_MAX_CONSECUTIVE_BLOCKS=2' config/defaults.conf
 	grep -q 'PROBATION_PASSED) MODE=PROTECT' scripts/ghostguard.sh
 	grep -q 'PROTECT_ARMED' scripts/supervisor.sh
+	grep -q 'PROTECT_FILTER_ARMED' scripts/supervisor.sh
+	grep -q 'PROTECT_WATCHDOG' scripts/supervisor.sh
 	grep -q 'DCPRO GhostGuard Virtual Touch' scripts/supervisor.sh
-	grep -q 'udevadm trigger' scripts/supervisor.sh
-	grep -q 'NICKEL_REBINDING' scripts/supervisor.sh
-	grep -q '/etc/init.d/z-nickel-hardware-status' scripts/supervisor.sh
 	grep -q 'nickel_has_fd.*arm_now' scripts/supervisor.sh
-	grep -q 'SAFETY_ROLLBACK requested=PROTECT forced=SHADOW' scripts/supervisor.sh
-	grep -q 'PROBATION_PASSED -> SHADOW retained' scripts/supervisor.sh
+	grep -q 'wait_proxy_preflight' scripts/supervisor.sh
+	grep -q 'deadman_watch' scripts/supervisor.sh
+	grep -q 'PRECHECK_TIMEOUT_NO_POST_GRAB_FORWARD' scripts/supervisor.sh
+	grep -q 'SAFETY_HANDSHAKE_PASS' scripts/supervisor.sh
+	grep -q 'FILTER_GATE_MISSING' scripts/supervisor.sh
+	grep -q 'PROBATION_PASSED -> PROTECT safety-handshake restart' scripts/supervisor.sh
 	grep -q 'nickel_rebind_once' scripts/ghostguard.sh
 	grep -q 'BASELINE_STABLE_LIVE' scripts/profile_manager.sh
 	grep -q 'EVIOCGRAB' src/ghostguardd.c
@@ -69,6 +79,16 @@ test:
 	grep -q 'if(!burst_guard||elapsed>80000u)return 0;if(risk<35u)return 0;' .build/ghostguardd.c
 	grep -q 'ghost_capture.gglog' .build/ghostguardd.c
 	grep -q 'capture_contact' .build/ghostguardd.c
+	grep -q 'filter_arm_path' .build/ghostguardd.c
+	grep -q 'PROTECT_FILTER_ARMED' .build/ghostguardd.c
+	grep -q 'PROXY_STATUS.ggstate' .build/ghostguardd.c
+	grep -q 'STATE=ACTIVE_PRECHECK' .build/ghostguardd.c
+	grep -q 'PRECHECK_FORWARD_OK' .build/ghostguardd.c
+	grep -q 'FILTER_DISARMED_FAIL_OPEN' .build/ghostguardd.c
+	grep -q 'escape_grace_contacts=3u' .build/ghostguardd.c
+	grep -q 'consecutive_blocks>=2u' .build/ghostguardd.c
+	grep -q 'ALLOW_ESCAPE' .build/ghostguardd.c
+	grep -q 'protect_requested=0' .build/ghostguardd.c
 	grep -q 'gap_us=' .build/ghostguardd.c
 	grep -q 'events=' .build/ghostguardd.c
 	grep -q 'tracking=' .build/ghostguardd.c
@@ -85,21 +105,23 @@ test:
 	sh tests/test_adaptive_protect.sh
 	sh tests/test_safety_hotfix.sh
 	python3 tests/test_episode_guard.py
-	sh tests/test_safety_rollback.sh
+	sh tests/test_safety_handshake.sh
 	go test ./cmd/gg-license-verify
 	$(MAKE) sync-package
 	sh -n package/.adds/ghostguard/*.sh
 	grep -q 'observer_profile.ggdata' package/.adds/ghostguard/ghostguard.sh
 	grep -q 'profile_v5.ggstate' package/.adds/ghostguard/profile_manager.sh
 	grep -q 'sync >/dev/null 2>&1 &' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'GhostGuard Kobo 0.8.6.1 Safety Rollback' package/.adds/ghostguard/nm_quick.sh
-	grep -q 'Protect: DISABLED (Safety Rollback)' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'GhostGuard Kobo 0.8.7 Safety Handshake' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'Safety Handshake: PASS' package/.adds/ghostguard/nm_quick.sh
+	grep -q 'Protect: PRECHECK (forward-only)' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'Start để tự kích hoạt Profile' package/.adds/ghostguard/nm_quick.sh
 	grep -q 'manifest.online.json' package/.adds/ghostguard/update.sh
 	grep -q 'KoboRoot.tgz.part' package/.adds/ghostguard/update.sh
 	grep -q 'EMERGENCY_STOP' package/.adds/ghostguard/emergency_stop.sh
-	grep -q '^Version: 0.8.6.1$$' package/.adds/ghostguard/VERSION
-	grep -q '^Protect: DISABLED in v0.8.6.1$$' package/.adds/ghostguard/VERSION
+	grep -q 'PROTECT_FILTER_ARMED' package/.adds/ghostguard/emergency_stop.sh
+	grep -q '^Version: 0.8.7$$' package/.adds/ghostguard/VERSION
+	grep -q '^Safety Handshake: enabled$$' package/.adds/ghostguard/VERSION
 	! grep -q '\.txt' package/.adds/ghostguard/ghostguard.sh
 	! grep -q '\.txt' package/.adds/ghostguard/profile_manager.sh
 	test ! -e package/.adds/ghostguard/SAFETY.ggdata
