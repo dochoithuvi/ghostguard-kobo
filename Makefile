@@ -64,7 +64,6 @@ test:
 	grep -q '^Protect: DISABLED in v0.8.7.1$$' package/.adds/ghostguard/VERSION
 	! grep -q '\.txt' package/.adds/ghostguard/ghostguard.sh
 	! grep -q '\.txt' package/.adds/ghostguard/profile_manager.sh
-	native-binaries: ;
 
 native-binaries:
 	python3 tools/prepare_native.py
